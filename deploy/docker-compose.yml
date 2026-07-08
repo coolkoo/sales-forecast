@@ -1,0 +1,51 @@
+# sales-forecast — deployable stack for 192.168.50.85
+#   docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
+# Ports 8900/8901 are chosen to avoid traderific (8800/8801) and AURIX (3000/3001/5500/8000/8001/9001).
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-salesforecast}
+      POSTGRES_USER: ${POSTGRES_USER:-sf_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - sf_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sf_user} -d ${POSTGRES_DB:-salesforecast}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        INSTALL_FORECAST: ${SF_INSTALL_FORECAST:-false}   # true = bake in torch + Chronos-2
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SF_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-sf_user}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-salesforecast}
+      SF_FORECAST_BACKEND: ${SF_FORECAST_BACKEND:-seasonal}
+      SF_CHRONOS_DEVICE: ${SF_CHRONOS_DEVICE:-cpu}
+      SF_API_PORT: "8900"
+      SF_MCP_PORT: "8901"
+      SF_MCP_TOKEN: ${SF_MCP_TOKEN:-}
+      # GPU selection: the daemon's default runtime is nvidia, so this env restricts
+      # which physical GPU the container sees. "2" = an idle A2 (traderific's live
+      # trading is on idx 1; its fine-tune uses idx 0) -> zero contention.
+      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-void}
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      HF_HOME: /root/.cache/huggingface
+    volumes:
+      - ..:/app                                   # code + data/ (rsync'd to host)
+      - ${HF_CACHE:-/root/.cache/huggingface}:/root/.cache/huggingface   # reuse cached Chronos-2 weights
+    ports:
+      - "8900:8900"        # API + dashboard
+      - "8901:8901"        # MCP
+
+volumes:
+  sf_pgdata:

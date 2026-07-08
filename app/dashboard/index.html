@@ -1,0 +1,1079 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KFC Sales Forecast & Analytics</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
+    --ink:#e7ebf0; --muted:#96a0b0; --accent:#5b9bff; --band:rgba(57,135,229,.20);
+    --grid:#232834; --navactive:rgba(91,155,255,.15);
+    --s1:#3987e5; --s2:#199e70; --s3:#c98500; --s4:#008300; --s5:#9085e9; --s6:#e66767;
+    --good:#0ca30c; --warn:#fab219; --serious:#ec835a; --critical:#e05757;
+  }
+  @media (prefers-color-scheme: light){
+    :root{--bg:#f4f6fa;--panel:#fff;--panel2:#f0f3f8;--line:#e2e7ef;--ink:#1a2230;
+      --muted:#5a6678;--accent:#2a78d6;--band:rgba(42,120,214,.14);--grid:#eef1f6;--navactive:rgba(42,120,214,.10);
+      --s1:#2a78d6;--s2:#1baf7a;--s3:#eda100;--s4:#008300;--s5:#4a3aa7;--s6:#e34948;--critical:#d03b3b;}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  header{display:flex;align-items:center;gap:14px;padding:13px 22px;flex-wrap:wrap;
+    border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:5}
+  header h1{font-size:15px;margin:0;font-weight:660;letter-spacing:.2px}
+  header .env{font-size:12px;color:var(--muted)}
+  select{background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+    border-radius:8px;padding:7px 10px;font-size:13px}
+  main{padding:20px 22px;max-width:1320px;margin:0 auto}
+  h2.sec{font-size:12px;margin:26px 0 12px;font-weight:700;text-transform:uppercase;
+    letter-spacing:1px;color:var(--muted);border-top:1px solid var(--line);padding-top:16px}
+  h2.sec:first-child{border-top:none;padding-top:0;margin-top:4px}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:14px;margin-bottom:10px}
+  .tile{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+  .tile .k{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;font-weight:600}
+  .tile .v{font-size:26px;font-weight:720;margin-top:7px;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .tile .s{font-size:12px;color:var(--muted);margin-top:4px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+  @media(max-width:920px){.grid,.grid3{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px}
+  .card h3{font-size:12px;margin:0 0 4px;font-weight:640;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+  .card .sub{font-size:11px;color:var(--muted);margin:0 0 10px}
+  .hint{font-size:10px;color:var(--muted);font-weight:500;text-transform:none;letter-spacing:0}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{color:var(--muted);font-weight:560;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  tr.click{cursor:pointer}
+  tr.click:hover td{background:var(--panel2)}
+  .scroll{overflow-x:auto}
+  .pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+  .t-POS_OUTAGE,.t-VOID_COMP_FRAUD{background:rgba(224,87,87,.16);color:var(--critical)}
+  .t-DEMAND_SPIKE{background:rgba(144,133,233,.18);color:var(--s5)}
+  .t-DEMAND_DROP{background:rgba(250,178,25,.18);color:var(--warn)}
+  .t-INVENTORY_VARIANCE{background:rgba(27,175,122,.16);color:var(--s2)}
+  .muted{color:var(--muted)}
+  .insights{list-style:none;margin:0;padding:0}
+  .insights li{padding:7px 0 7px 20px;position:relative;border-bottom:1px solid var(--line);font-size:13.5px}
+  .insights li:last-child{border-bottom:none}
+  .insights li:before{content:"▸";position:absolute;left:0;color:var(--accent)}
+  .insights strong{font-weight:680}
+  svg{display:block;width:100%}
+  .tick{fill:var(--muted);font-size:10px}
+  .lbl{fill:var(--ink);font-size:10px;font-variant-numeric:tabular-nums}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:11px;color:var(--muted)}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+  .frozen{color:var(--accent)}
+  [data-drill]{cursor:pointer}
+  /* drawer */
+  .ov{position:fixed;inset:0;background:rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:opacity .18s;z-index:20}
+  .ov.open{opacity:1;pointer-events:auto}
+  .drawer{position:fixed;top:0;right:0;height:100%;width:min(560px,94vw);background:var(--panel);
+    border-left:1px solid var(--line);transform:translateX(100%);transition:transform .2s ease;z-index:21;
+    display:flex;flex-direction:column;box-shadow:-16px 0 40px rgba(0,0,0,.3)}
+  .drawer.open{transform:translateX(0)}
+  .dhead{display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid var(--line)}
+  .dhead h3{margin:0;font-size:15px;font-weight:680}
+  .dhead .x{margin-left:auto;background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1}
+  .dbody{padding:16px 18px;overflow:auto}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13px;margin-bottom:12px}
+  .kv .k{color:var(--muted)}
+  .kv .v{text-align:right;font-variant-numeric:tabular-nums}
+  .note{font-size:12.5px;color:var(--ink);background:var(--panel2);border-radius:10px;padding:10px 12px;margin:8px 0 14px}
+  /* left sidebar nav */
+  .sidebar{position:fixed;top:0;left:0;bottom:0;width:238px;background:var(--panel);
+    border-right:1px solid var(--line);display:flex;flex-direction:column;padding:14px 12px 12px;z-index:10}
+  .brand{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:8px 8px 14px;margin-bottom:4px;border-bottom:1px solid var(--line)}
+  .brandlogo{height:30px;width:auto;max-width:162px;display:block}
+  .brandsub{font-size:11px;color:var(--muted);font-weight:500;letter-spacing:.01em}
+  .navscroll{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:1px;margin-top:4px}
+  .navgroup{font-size:10px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;
+    color:var(--muted);padding:14px 11px 5px;opacity:.7}
+  .navitem{display:flex;align-items:center;gap:11px;background:none;border:none;color:var(--muted);
+    font-size:13.5px;font-weight:550;padding:8px 11px;border-radius:9px;cursor:pointer;text-align:left;width:100%}
+  .navitem svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.7;
+    stroke-linecap:round;stroke-linejoin:round;flex:none;opacity:.85}
+  .navitem:hover{background:var(--panel2);color:var(--ink)}
+  .navitem.active{background:var(--navactive);color:var(--accent);font-weight:650}
+  .navitem.active svg{opacity:1}
+  .navfoot{border-top:1px solid var(--line);padding-top:8px;margin-top:6px;display:flex;flex-direction:column;gap:1px}
+  .sidefoot{padding:9px 11px 2px;font-size:10.5px;color:var(--muted)}
+  .content{margin-left:238px}
+  .topbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:14px;
+    padding:13px 26px;background:var(--bg);border-bottom:1px solid var(--line)}
+  .topbar h1{font-size:19px;margin:0;font-weight:700;letter-spacing:-.015em}
+  .tbsub{font-size:12px;color:var(--muted);margin-top:1px}
+  .tbpills{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .tbmeta{font-size:12px;color:var(--muted)}
+  .tblive{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--good);
+    background:rgba(12,163,12,.10);border:1px solid rgba(12,163,12,.22);border-radius:20px;padding:3px 11px}
+  .tblive .dot{width:7px;height:7px;border-radius:50%;background:var(--good);box-shadow:0 0 7px var(--good)}
+  .tbdb{font-size:12px;color:var(--muted);background:var(--panel2);border:1px solid var(--line);border-radius:20px;padding:3px 11px}
+  .tbuser{font-size:12px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:20px;
+    padding:3px 5px 3px 11px;display:inline-flex;align-items:center;gap:8px;font-weight:600}
+  .tbuser b{background:var(--navactive);color:var(--accent);border-radius:14px;padding:2px 9px;font-size:11px;font-weight:600}
+  .langtoggle{display:inline-flex;border:1px solid var(--line);border-radius:20px;overflow:hidden}
+  .langbtn{background:none;border:none;color:var(--muted);font-size:11px;font-weight:700;padding:4px 11px;cursor:pointer}
+  .langbtn.on{background:var(--navactive);color:var(--accent)}
+  @media(max-width:820px){
+    .sidebar{width:62px;padding:12px 8px}
+    .brand{gap:0;align-items:center;padding:8px 0 12px} .brandsub{display:none} .brandlogo{max-width:46px}
+    .navitem{justify-content:center;gap:0;font-size:0;padding:11px 0}
+    .navitem svg{width:20px;height:20px}
+    .navgroup,.sidefoot{display:none}
+    .content{margin-left:62px}
+    .topbar{padding:12px 16px} .tbsub,.tbmeta{display:none}
+  }
+  /* sources */
+  .srcgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+  .src{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:8px}
+  .src .top{display:flex;align-items:center;gap:10px}
+  .src .icon{font-size:22px}
+  .src .nm{font-weight:660;font-size:14px}
+  .src .cat{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .src .desc{font-size:12.5px;color:var(--muted);line-height:1.4;min-height:34px}
+  .src .feeds{font-size:11px;color:var(--muted)}
+  .st{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;margin-left:auto}
+  .st-connected{background:rgba(12,163,12,.16);color:var(--good)}
+  .st-configured{background:rgba(250,178,25,.18);color:var(--warn)}
+  .st-available{background:var(--panel2);color:var(--muted)}
+  .src .act{margin-top:auto;display:flex;gap:8px;align-items:center}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 12px;font-size:12.5px;font-weight:600;cursor:pointer}
+  .btn.ghost{background:var(--panel2);color:var(--ink);border:1px solid var(--line)}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+  .field input{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font-size:13px}
+  .field .sec{color:var(--warn);font-weight:600}
+  .drop{border:2px dashed var(--line);border-radius:12px;padding:16px;text-align:center;color:var(--muted);font-size:12.5px;cursor:pointer;margin-top:6px}
+  .drop.over{border-color:var(--accent);color:var(--ink)}
+  /* --- polish --- */
+  .card{box-shadow:0 1px 2px rgba(16,24,40,.04)}
+  /* data lineage */
+  .lflow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+  .lchip{display:inline-flex;align-items:center;gap:9px;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;padding:11px 15px;font-size:13px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+  .lchip b{text-transform:capitalize;font-weight:650}
+  .lchip .cnt{color:var(--muted);font-variant-numeric:tabular-nums}
+  .lchip .ld{width:11px;height:11px;border-radius:3px}
+  .lchip.bronze .ld{background:#c17d3e}.lchip.silver .ld{background:#8a97ab}.lchip.gold .ld{background:#d9a92e}
+  .larr{color:var(--muted);font-size:17px;opacity:.6}
+  .lyr{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--panel);box-shadow:0 1px 3px rgba(16,24,40,.05)}
+  .lyr .hd{padding:12px 16px;font-weight:700;font-size:12.5px;letter-spacing:.05em;color:#fff;display:flex;align-items:center;gap:8px}
+  .lyr.bronze .hd{background:linear-gradient(135deg,#c17d3e,#9c5a24)}
+  .lyr.silver .hd{background:linear-gradient(135deg,#8794a8,#5f6e85)}
+  .lyr.gold .hd{background:linear-gradient(135deg,#d9a92e,#b07d0a)}
+  .asset{display:flex;align-items:center;gap:12px;padding:11px 16px;border-top:1px solid var(--line)}
+  .asset .nm{font-weight:600;font-size:13px}
+  .asset .meta{font-size:11px;color:var(--muted);font-family:ui-monospace,monospace}
+  .asset .cnt{margin-left:auto;font-weight:700;font-size:15px;font-variant-numeric:tabular-nums}
+  /* report cards */
+  .rcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;
+    box-shadow:0 1px 2px rgba(16,24,40,.04);transition:box-shadow .15s,transform .15s}
+  .rcard:hover{box-shadow:0 6px 20px rgba(16,24,40,.08);transform:translateY(-2px)}
+  .rcard .rtop{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+  .rcard .ric{width:38px;height:38px;border-radius:10px;background:var(--navactive);display:flex;align-items:center;justify-content:center;font-size:19px;flex:none}
+  .rcard .rti{font-weight:660;font-size:14px;line-height:1.2}
+  .rcard .rds{font-size:12.5px;color:var(--muted);line-height:1.45;flex:1;margin:0 0 12px}
+  .rcard .ract{display:flex;gap:8px;align-items:center}
+  /* login + rbac */
+  .loginwrap{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;z-index:100}
+  .logincard{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:30px 28px;width:340px;
+    display:flex;flex-direction:column;gap:12px;box-shadow:0 16px 50px rgba(16,24,40,.16)}
+  .logincard .lgsub{font-size:13px;color:var(--muted);margin:2px 0 8px}
+  .logincard input{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:11px 12px;color:var(--ink);font-size:14px}
+  .lgerr{color:var(--critical);font-size:12.5px;min-height:15px}
+  .lghint{font-size:11px;color:var(--muted);text-align:center;line-height:1.5}
+  .ipt{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font-size:13px}
+  .role-badge{background:var(--navactive);color:var(--accent);border-radius:14px;padding:2px 9px;font-size:11px;font-weight:600;text-transform:capitalize}
+</style>
+</head>
+<body>
+<div class="loginwrap" id="login">
+  <div class="logincard">
+    <img class="brandlogo" src="/assets/kfc-logo.svg" alt="KFC" style="height:34px">
+    <div class="lgsub">Forecast &amp; Analytics — sign in</div>
+    <input id="lg_user" placeholder="Username" autocomplete="username">
+    <input id="lg_pass" type="password" placeholder="Password" autocomplete="current-password">
+    <button class="btn" id="lg_btn" style="width:100%;padding:11px">Sign in</button>
+    <div class="lgerr" id="lg_err"></div>
+    <div class="lghint">Demo accounts: <b>admin</b> · <b>manager</b> · <b>analyst</b> · <b>viewer</b><br>(password = username · change in production)</div>
+  </div>
+</div>
+<nav class="sidebar">
+  <div class="brand"><img class="brandlogo" src="/assets/kfc-logo.svg" alt="KFC"><span class="brandsub">Forecast &amp; Analytics</span></div>
+  <div class="navscroll">
+    <button class="navitem active" data-tab="dashboard" onclick="showTab('dashboard')"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="10" width="8" height="11" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/></svg> Dashboard</button>
+    <div class="navgroup">Analytics</div>
+    <button class="navitem" data-tab="ask" onclick="showTab('ask')"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 4 11.5 8.5 8.5 0 0 1 12.5 3 8.4 8.4 0 0 1 21 11.5z"/></svg> Ask</button>
+    <button class="navitem" data-tab="forecast" onclick="showTab('forecast')"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l3.5-4 3 2.5L21 7"/></svg> Forecast</button>
+    <button class="navitem" data-tab="stores" onclick="showTab('stores')"><svg viewBox="0 0 24 24"><path d="M4 9h16l-1-5H5L4 9z"/><path d="M5 9v11h14V9"/><path d="M9 20v-6h6v6"/></svg> Stores</button>
+    <button class="navitem" data-tab="anomalies" onclick="showTab('anomalies')"><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> Anomalies</button>
+    <div class="navgroup">Operations</div>
+    <button class="navitem" data-tab="inventory" onclick="showTab('inventory')"><svg viewBox="0 0 24 24"><path d="M21 8 12 3 3 8l9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg> Inventory</button>
+    <button class="navitem" data-tab="alerts" onclick="showTab('alerts')"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg> Alerts</button>
+    <div class="navgroup">Data &amp; reports</div>
+    <button class="navitem" data-tab="reports" onclick="showTab('reports')"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h8M8 9h2"/></svg> Reports</button>
+    <button class="navitem" data-tab="data" onclick="showTab('data')"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg> Data lineage</button>
+    <button class="navitem" data-tab="sources" onclick="showTab('sources')"><svg viewBox="0 0 24 24"><path d="M8 2v5"/><path d="M16 2v5"/><path d="M6 7h12v4a6 6 0 0 1-12 0V7z"/><path d="M12 17v5"/></svg> Sources</button>
+  </div>
+  <div class="navfoot">
+    <button class="navitem" data-tab="settings" onclick="showTab('settings')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg> Settings</button>
+    <div class="sidefoot"><div id="env"></div></div>
+  </div>
+</nav>
+<div class="content">
+  <div class="topbar">
+    <div><h1 id="pagetitle">Dashboard</h1><div class="tbsub" id="tbsub"></div></div>
+    <div class="tbpills">
+      <span class="tbmeta" id="runinfo"></span>
+      <span class="tblive"><i class="dot"></i> <span id="tb-backend">—</span></span>
+      <span class="tbdb" id="tb-db">—</span>
+      <span class="langtoggle"><button class="langbtn" data-lang="en" onclick="setLang('en')">EN</button><button class="langbtn" data-lang="vi" onclick="setLang('vi')">VI</button></span>
+      <span class="tbuser">JK <b>admin</b></span>
+    </div>
+  </div>
+  <main>
+  <section id="tab-dashboard">
+  <h2 class="sec">Chain analytics summary</h2>
+  <div class="tiles" id="tiles"></div>
+  <div class="card"><h3>What the numbers say</h3><ul class="insights" id="insights"></ul></div>
+
+  <div class="card">
+    <h3>Chain net revenue — 90-day history + 14-day forecast <span class="hint">· click a point for that day's breakdown</span></h3>
+    <p class="sub" id="trend-sub"></p><div id="trend"></div>
+    <div class="legend"><span><i style="background:var(--s1)"></i>actual</span><span><i style="background:var(--s3)"></i>forecast</span></div>
+  </div>
+
+  <div class="grid3">
+    <div class="card"><h3>Revenue by day of week <span class="hint">· click a day</span></h3><p class="sub">last 120 days · index vs Monday</p><div id="dow"></div></div>
+    <div class="card"><h3>Daypart mix <span class="hint">· click a slice</span></h3><p class="sub">forecast net revenue</p><div id="daypart"></div><div class="legend" id="daypart-legend"></div></div>
+    <div class="card"><h3>Category mix <span class="hint">· click a bar</span></h3><p class="sub">forecast net revenue</p><div id="category"></div></div>
+  </div>
+
+  <div class="grid">
+    <div class="card"><h3>Top menu items <span class="hint">· click for store split</span></h3><p class="sub">forecast net revenue, next 14 days</p><div id="topitems"></div></div>
+    <div class="card"><h3>Store comparison <span class="hint">· click to open store</span></h3><p class="sub">forecast net revenue, next 14 days</p><div id="stores"></div></div>
+  </div>
+
+  </section>
+
+  <section id="tab-stores" hidden>
+    <h2 class="sec">Stores — chain overview <span class="hint">· click a row for detail</span></h2>
+    <div class="card" id="ssscard" style="margin-bottom:16px"></div>
+    <div class="card"><div class="scroll"><table id="storetable"></table></div></div>
+    <h2 class="sec" id="storesec">Store detail — <select id="store"></select></h2>
+    <div class="card"><h3>14-day forecast — net revenue (p05–p95 band)</h3><div id="chart"></div></div>
+    <div class="grid">
+      <div class="card"><h3>Anomalies <span class="hint">· click a row to inspect</span></h3><div class="scroll"><table id="anoms"></table></div></div>
+      <div class="card"><h3>Buying — suggested reorders</h3><div class="scroll"><table id="buying"></table></div></div>
+    </div>
+    <div class="card"><h3>Thaw board — pull-from-freezer schedule (next service day)</h3><div class="scroll"><table id="thaw"></table></div></div>
+  </section>
+
+  <section id="tab-anomalies" hidden>
+    <h2 class="sec">Anomaly triage — all stores</h2>
+    <div class="tiles" id="anomtiles"></div>
+    <div class="card"><h3>Filter by type</h3><div id="anomfilter" style="display:flex;gap:6px;flex-wrap:wrap"></div></div>
+    <div class="card"><h3>All anomalies <span class="hint">· click a row to inspect</span></h3><div class="scroll"><table id="anomall"></table></div></div>
+  </section>
+
+  <section id="tab-inventory" hidden>
+    <h2 class="sec">Inventory &amp; buying — chain</h2>
+    <div class="tiles" id="invtiles"></div>
+    <div class="grid">
+      <div class="card"><h3>Top reorders by SKU</h3><p class="sub">aggregated across all stores</p><div id="invsku"></div></div>
+      <div class="card"><h3>Reorder cost by store</h3><p class="sub">click a bar to open the store</p><div id="invstore"></div></div>
+    </div>
+    <div class="card"><h3>Thaw board — all stores (next service day)</h3><div class="scroll"><table id="invthaw"></table></div></div>
+  </section>
+
+  <section id="tab-sources" hidden>
+    <h2 class="sec">Input sources — select &amp; connect</h2>
+    <p class="sub" style="margin:-6px 0 16px;font-size:12.5px">Connect a POS/ERP source or upload an export. Connected sources feed the warehouse the forecaster reads. Secrets are entered by you and kept in the server vault — the app never stores them.</p>
+    <div class="srcgrid" id="srcgrid"></div>
+    <input type="file" id="fileinput" multiple accept=".csv,.json" style="display:none">
+    <div class="card" style="margin-top:18px" id="powerbi"><h3>📊 PowerBI &amp; BI feeds</h3><p class="sub">Consume forecasts, anomalies &amp; sales in your existing PowerBI — no migration</p><div id="pbibody"></div></div>
+    <div class="card" style="margin-top:18px"><h3>Recent uploads &amp; staging <button class="btn ghost" style="float:right;padding:5px 11px" id="src_runpipe">▶ Run pipeline</button></h3>
+      <div id="src_pipemsg" class="muted" style="font-size:11.5px;min-height:16px;margin-bottom:6px"></div>
+      <div class="scroll"><table id="uploads"></table></div></div>
+  </section>
+
+  <section id="tab-ask" hidden>
+    <h2 class="sec">Ask the data <span class="hint">· plain-English → SQL</span></h2>
+    <div class="card">
+      <div style="display:flex;gap:8px"><input id="askbox" placeholder="e.g. top 5 items by revenue · anomalies at KFC-0533 · sales by daypart" style="flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px 12px;color:var(--ink);font-size:14px"><button class="btn" id="askbtn">Ask</button></div>
+      <div id="asksuggest" style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap"></div>
+    </div>
+    <div class="card" id="askresult" style="display:none"></div>
+  </section>
+
+  <section id="tab-data" hidden>
+    <h2 class="sec">Data lineage — bronze → silver → gold</h2>
+    <p class="sub" style="margin:-6px 0 14px;font-size:12.5px" id="lineage-meta"></p>
+    <div id="lineage"></div>
+  </section>
+
+  <section id="tab-alerts" hidden>
+    <h2 class="sec">Anomaly alerts</h2>
+    <div class="grid">
+      <div class="card"><h3>Delivery &amp; routing</h3>
+        <div id="alertform" style="margin-top:8px"></div>
+        <button class="btn" id="savealerts">Save</button>
+        <button class="btn ghost" id="testalert">Send test</button>
+        <button class="btn ghost" id="dispatchalert">Dispatch now</button>
+        <div id="alertmsg" class="note" style="margin-top:12px;display:none"></div>
+      </div>
+      <div class="card"><h3>Routing rules</h3><p class="sub">who gets notified, by anomaly type</p><div class="scroll"><table id="routetable"></table></div></div>
+    </div>
+    <div class="card"><h3>Recent notifications</h3><div class="scroll"><table id="notiflog"></table></div></div>
+  </section>
+
+  <section id="tab-reports" hidden>
+    <h2 class="sec">Reports</h2>
+    <div class="card">
+      <h3>🤖 AI executive report <span class="hint">· generated narrative</span>
+        <button class="btn" style="float:right" id="genai">Generate</button>
+        <button class="btn ghost" style="float:right;margin-right:8px" onclick="window.print()">Print</button></h3>
+      <div id="airep"><p class="sub">Generate an AI-written executive summary of the current data. <a href="#" onclick="var e=document.getElementById('aicfg');e.style.display=e.style.display==='none'?'block':'none';return false">Configure LLM</a> — optional; a built-in analyst writes it otherwise.</p></div>
+      <div id="aicfg" style="display:none;margin-top:10px"></div>
+    </div>
+    <div class="card"><div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+      <label class="muted" style="font-size:12px">From <input type="date" id="rp_from"></label>
+      <label class="muted" style="font-size:12px">To <input type="date" id="rp_to"></label>
+      <label class="muted" style="font-size:12px">Store <select id="rp_store"></select></label>
+      <span class="hint">filters apply to date/store reports · default last 90 days</span>
+    </div></div>
+    <div class="grid3" id="reportcards"></div>
+    <div class="card" id="reportout" style="display:none;margin-top:16px"></div>
+    <div class="card" id="pbi2"><h3>📊 Connect PowerBI <span class="hint">· available now</span></h3>
+      <p class="sub">Every report here is also exposed as a live feed — connect your existing PowerBI whenever you're ready, no migration.</p>
+      <div id="pbi2body"></div></div>
+  </section>
+
+  <section id="tab-forecast" hidden>
+    <h2 class="sec">Forecast explorer</h2>
+    <div class="card"><h3>Model accuracy — walk-forward backtest <span class="hint" id="bt-sub"></span></h3><div class="tiles" id="bt-tiles"></div></div>
+    <div class="card"><div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+      <label class="muted" style="font-size:12px">Store <select id="fc_store"></select></label>
+      <label class="muted" style="font-size:12px">Item <select id="fc_item"></select></label>
+      <label class="muted" style="font-size:12px">Daypart <select id="fc_daypart"></select></label>
+    </div></div>
+    <div class="card"><h3 id="fc_title">Forecast</h3><p class="sub">expected units per day with p05–p95 band</p><div id="fc_chart"></div>
+      <div class="legend"><span><i style="background:var(--accent)"></i>p50 expected</span><span><i style="background:var(--band)"></i>p05–p95 band</span></div></div>
+    <div class="card"><h3>Daily detail</h3><div class="scroll"><table id="fc_table"></table></div></div>
+  </section>
+
+  <section id="tab-settings" hidden>
+    <h2 class="sec">Settings</h2>
+    <div class="grid">
+      <div class="card"><h3>Forecast &amp; pipeline tuning</h3>
+        <div id="settingsform" style="margin-top:8px"></div>
+        <button class="btn" id="savesettings">Save settings</button> <span id="setmsg" class="muted" style="font-size:12px"></span></div>
+      <div class="card"><h3>Run pipeline</h3>
+        <p class="sub">Re-ingest → forecast → detect anomalies → plan buying/prep, using the settings on the left. Chronos-2 runs on GPU when selected (falls back to seasonal if unavailable).</p>
+        <button class="btn" id="runpipe">▶ Run pipeline now</button>
+        <div id="pipemsg" class="note" style="margin-top:12px;display:none"></div></div>
+    </div>
+    <div class="card"><h3>LLM / AI endpoint <span class="hint">· powers the AI report &amp; AI features</span></h3>
+      <p class="sub">Point at an LLM — Anthropic, or any OpenAI-compatible endpoint (self-hosted or cloud). The API key is stored in the app database; use a restricted key.</p>
+      <div id="llmform" style="max-width:560px;margin-top:8px"></div>
+      <button class="btn" id="savellm">Save LLM config</button>
+      <button class="btn ghost" id="testllm">Test connection</button>
+      <span id="llmmsg" class="muted" style="font-size:12px"></span>
+    </div>
+    <div class="card" id="userscard"><h3>Users &amp; roles <span class="hint">· admin only</span></h3>
+      <p class="sub">Roles: <b>admin</b> (full control) · <b>manager</b> (view + operate) · <b>analyst</b> / <b>viewer</b> (read-only).</p>
+      <div class="scroll"><table id="userstable"></table></div>
+      <div id="userform" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"></div>
+      <div id="usermsg" class="muted" style="font-size:12px;margin-top:6px"></div>
+    </div>
+  </section>
+  </main>
+</div>
+
+<div class="ov" id="ov" onclick="closeDrawer()"></div>
+<aside class="drawer" id="drawer">
+  <div class="dhead"><h3 id="dtitle"></h3><button class="x" onclick="closeDrawer()">×</button></div>
+  <div class="dbody" id="dbody"></div>
+</aside>
+
+<script>
+const $=id=>document.getElementById(id);
+const money=v=>'₫'+Number(v).toLocaleString('vi-VN',{maximumFractionDigits:0});
+const short=v=>{v=Number(v);const a=Math.abs(v);return a>=1e9?'₫'+(v/1e9).toFixed(2)+' tỷ':a>=1e6?'₫'+(v/1e6).toFixed(0)+' tr':a>=1e3?'₫'+(v/1e3).toFixed(0)+'k':'₫'+Math.round(v);};
+const md=s=>String(s).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+/* ---------- i18n (EN / VI) ---------- */
+let LANG=localStorage.getItem('sf_lang')||'en';
+const I18N_VI={
+ "Dashboard":"Tổng quan","Ask":"Hỏi dữ liệu","Ask the data":"Hỏi dữ liệu","Forecast":"Dự báo","Stores":"Cửa hàng",
+ "Anomalies":"Bất thường","Inventory":"Kho hàng","Inventory & Buying":"Kho & Mua hàng","Data lineage":"Dòng dữ liệu",
+ "Sources":"Nguồn dữ liệu","Settings":"Cài đặt","Analytics":"Phân tích","Operations":"Vận hành","Data & sources":"Dữ liệu & nguồn",
+ "Chain analytics summary":"Tổng hợp phân tích chuỗi","What the numbers say":"Các con số nói gì",
+ "Forecast revenue":"Doanh thu dự báo","Per day":"Mỗi ngày","Weekend share":"Tỷ trọng cuối tuần","Busiest day":"Ngày đông nhất",
+ "Top item":"Món bán chạy","Reorder cost":"Chi phí đặt lại","Footprint":"Quy mô","Fri–Sun of weekly":"T6–CN trong tuần",
+ "Model accuracy":"Độ chính xác","Band coverage":"Phủ khoảng","Skill vs naive":"Vượt mốc cơ bản","Bias":"Độ lệch","MAE":"MAE","MAPE":"MAPE",
+ "next 14 days":"14 ngày tới","flagged":"được gắn cờ","suggested POs":"đơn đặt đề xuất","items":"món","stores":"cửa hàng",
+ "Revenue by day of week":"Doanh thu theo ngày trong tuần","Daypart mix":"Cơ cấu theo buổi","Category mix":"Cơ cấu theo nhóm món",
+ "Top menu items":"Món bán chạy nhất","Store comparison":"So sánh cửa hàng","Top reorders by SKU":"Đặt lại nhiều nhất theo SKU",
+ "Reorder cost by store":"Chi phí đặt lại theo cửa hàng","Model accuracy — walk-forward backtest":"Độ chính xác mô hình — kiểm định lùi",
+ "Forecast explorer":"Khám phá dự báo","Daily detail":"Chi tiết theo ngày","Anomaly triage — all stores":"Phân loại bất thường — toàn chuỗi",
+ "Filter by type":"Lọc theo loại","All anomalies":"Tất cả bất thường","Stores — chain overview":"Cửa hàng — tổng quan chuỗi",
+ "Data lineage — bronze → silver → gold":"Dòng dữ liệu — bronze → silver → gold","Input sources — select & connect":"Nguồn dữ liệu — chọn & kết nối",
+ "Recent uploads & staging":"Tải lên & lưu tạm gần đây","Forecast & pipeline tuning":"Tinh chỉnh dự báo & quy trình",
+ "Run pipeline":"Chạy quy trình","Run pipeline now":"Chạy quy trình ngay","Save settings":"Lưu cài đặt","Save connection":"Lưu kết nối",
+ "Connect":"Kết nối","Configure":"Cấu hình","Promote":"Đưa vào kho","Ask":"Hỏi","Thinking…":"Đang xử lý…",
+ "Buying — suggested reorders":"Mua hàng — đề xuất đặt lại","Thaw board — all stores (next service day)":"Bảng rã đông — toàn chuỗi (ngày phục vụ tới)",
+ "Store detail":"Chi tiết cửa hàng","No anomalies at this store":"Không có bất thường tại cửa hàng này","No data":"Không có dữ liệu",
+ "type":"loại","store":"cửa hàng","region":"vùng","from":"từ","to":"đến","detail":"chi tiết","score":"điểm","target":"đối tượng",
+ "council":"hội đồng","sku":"SKU","order":"đặt","on hand":"tồn kho","lead":"giao","cost":"chi phí","uom":"đơn vị","qty":"SL",
+ "for":"cho","hrs":"giờ","date":"ngày","units":"đơn vị","net":"doanh thu","forecast (14d)":"dự báo (14n)","top item":"món bán chạy",
+ "reorder cost":"chi phí đặt lại","anomalies":"bất thường","POS OUTAGE":"MẤT KẾT NỐI POS","DEMAND SPIKE":"TĂNG ĐỘT BIẾN",
+ "DEMAND DROP":"SỤT GIẢM","VOID COMP FRAUD":"GIAN LẬN HỦY/TẶNG","INVENTORY VARIANCE":"CHÊNH LỆCH KHO","Council verdict":"Kết luận hội đồng",
+ "Same-store sales":"Doanh thu cùng cửa hàng","Total":"Tổng","actual":"thực tế","forecast":"dự báo","Choose file…":"Chọn tệp…",
+ "Alerts":"Cảnh báo","Reports":"Báo cáo","Anomaly alerts":"Cảnh báo bất thường","Delivery & routing":"Gửi & định tuyến",
+ "Routing rules":"Quy tắc định tuyến","Recent notifications":"Thông báo gần đây","Save":"Lưu","Send test":"Gửi thử",
+ "Dispatch now":"Gửi ngay","Run report":"Chạy báo cáo","Export CSV":"Xuất CSV","Print":"In","Run":"Chạy",
+ "PowerBI & BI feeds":"PowerBI & nguồn BI","when":"lúc","team":"nhóm","channel":"kênh","message":"nội dung",
+};
+function tr(s){return LANG==='vi'?(I18N_VI[s]!==undefined?I18N_VI[s]:s):s;}
+let MO=null;
+function applyI18n(){
+  if(MO)MO.disconnect();
+  const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+  let n; while(n=w.nextNode()){
+    const raw=n.nodeValue; const t=raw.trim();
+    if(n.__key===undefined) n.__key=(I18N_VI[t]!==undefined)?raw:null;
+    if(n.__key){const key=n.__key.trim(); const tgt=n.__key.replace(key, LANG==='vi'?I18N_VI[key]:key); if(n.nodeValue!==tgt)n.nodeValue=tgt;}
+  }
+  document.querySelectorAll('[placeholder]').forEach(el=>{
+    if(el.__ph===undefined)el.__ph=el.getAttribute('placeholder');
+    if(I18N_VI[el.__ph]!==undefined){const tgt=LANG==='vi'?I18N_VI[el.__ph]:el.__ph; if(el.getAttribute('placeholder')!==tgt)el.setAttribute('placeholder',tgt);}
+  });
+  if(MO)MO.observe(document.body,{childList:true,subtree:true,characterData:true});
+}
+function setLang(l){LANG=l;localStorage.setItem('sf_lang',l);document.querySelectorAll('.langbtn').forEach(b=>b.classList.toggle('on',b.dataset.lang===l));applyI18n();refreshInsights();}
+async function refreshInsights(){const el=document.getElementById('insights');if(!el)return;try{const sm=await get('/api/analytics/summary?lang='+LANG);el.innerHTML=sm.insights.map(t=>`<li>${md(t)}</li>`).join('');}catch(e){}}
+async function get(u){const r=await fetch(u);return r.json();}
+const cssv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim()||n;
+const SC=['--s1','--s2','--s3','--s4','--s5','--s6'].map(cssv);
+const C={acc:cssv('--accent'),band:cssv('--band'),grid:cssv('--grid'),line:cssv('--line'),
+         muted:cssv('--muted'),crit:cssv('--critical'),s1:cssv('--s1'),s3:cssv('--s3')};
+const esc=s=>String(s).replace(/"/g,'&quot;');
+let STORE=null;
+
+let USER=null;
+function setupLogin(){
+  document.getElementById('login').style.display='flex';
+  const go=()=>doLogin();
+  $('lg_btn').onclick=go; $('lg_pass').onkeydown=e=>{if(e.key==='Enter')go();};
+  $('lg_user').focus();
+}
+async function doLogin(){
+  const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:$('lg_user').value,password:$('lg_pass').value})});
+  if(r.ok)location.reload(); else $('lg_err').textContent='Invalid username or password.';
+}
+async function doLogout(){await fetch('/api/auth/logout',{method:'POST'});location.reload();}
+function applyRBAC(){
+  const chip=document.querySelector('.tbuser');
+  if(chip)chip.innerHTML=`${USER.username} <span class="role-badge">${USER.role}</span> <a href="#" title="Sign out" onclick="doLogout();return false" style="color:var(--muted);text-decoration:none;font-size:15px">⎋</a>`;
+  const need={settings:'admin',sources:'operate',alerts:'operate'};
+  document.querySelectorAll('.navitem').forEach(b=>{const p=need[b.dataset.tab];b.style.display=(p&&!USER.permissions.includes(p))?'none':'';});
+}
+async function init(){
+  const me=await get('/api/auth/me');
+  if(!me.authenticated){setupLogin();return;}
+  USER=me; applyRBAC();
+  const _p=new URLSearchParams(location.search); const _tab=_p.get('tab'); if(_tab&&TABS.includes(_tab)) showTab(_tab);
+  if(_p.get('lang')) LANG=_p.get('lang');   // deep-link
+  document.querySelectorAll('.langbtn').forEach(b=>b.classList.toggle('on',b.dataset.lang===LANG));
+  MO=new MutationObserver(()=>{clearTimeout(applyI18n._t);applyI18n._t=setTimeout(applyI18n,45);});
+  applyI18n();
+  const [s,h,sm]=await Promise.all([get('/api/summary'),get('/api/health'),get('/api/analytics/summary?lang='+LANG)]);
+  $('tb-backend').textContent=sm.backend;
+  $('tb-db').textContent=h.database;
+  $('runinfo').textContent=`data through ${sm.run_through}`;
+  $('tbsub').textContent=`${sm.kpis.stores} stores · ${sm.kpis.menu_items} items · ${sm.backend} forecaster · ${sm.horizon_days}-day horizon`;
+  $('env').textContent=`v0.1 · KFC pilot`;
+  const k=sm.kpis;
+  $('tiles').innerHTML=[
+    ['Forecast revenue',short(k.forecast_net_total),`next ${sm.horizon_days} days`],
+    ['Per day',short(k.forecast_net_daily),`${k.growth_vs_history>=0?'+':''}${Math.round(k.growth_vs_history*100)}% vs history`],
+    ['Weekend share',Math.round(k.weekend_share*100)+'%','Fri–Sun of weekly'],
+    ['Busiest day',k.busiest_day,`top daypart: ${k.top_daypart}`],
+    ['Top item',k.top_item,''],['Anomalies',k.anomalies,'flagged'],
+    ['Reorder cost',short(k.reorder_cost),'suggested POs'],['Footprint',k.stores+' stores',k.menu_items+' items'],
+  ].map(([kk,v,sub])=>`<div class="tile"><div class="k">${kk}</div><div class="v">${v}</div><div class="s">${sub}</div></div>`).join('');
+  $('insights').innerHTML=sm.insights.map(t=>`<li>${md(t)}</li>`).join('');
+
+  const [trend,dow,daypart,category,topitems,stores]=await Promise.all([
+    get('/api/analytics/trend'),get('/api/analytics/dow'),get('/api/analytics/daypart'),
+    get('/api/analytics/category'),get('/api/analytics/top_items?n=10'),get('/api/analytics/stores')]);
+  drawTrend(trend); drawDOW(dow); drawDonut(daypart);
+  drawHBar('category',category.map((x,i)=>({label:x.category,value:x.net,color:SC[i%6],dt:'cat',dv:x.category})));
+  drawHBar('topitems',topitems.map(r=>({label:r.menu_item,value:r.net,color:C.s1,dt:'item',dv:r.menu_item_id})));
+  drawHBar('stores',stores.map(r=>({label:r.store,value:r.net,color:C.s1,dt:'store',dv:r.store})));
+
+  const st=await get('/api/stores');
+  $('store').innerHTML=st.map(x=>`<option value="${x.store}">${x.store} · ${x.region}</option>`).join('');
+  STORE=st[0].store; $('store').value=STORE; $('store').onchange=e=>{STORE=e.target.value;loadStore();};
+  await loadStore();
+  const ins=new URLSearchParams(location.search).get('inspect'); if(ins) openAnomaly(ins);
+}
+
+/* ---------- charts ---------- */
+function drawTrend(d){
+  const H=210,W=1240,pad={l:52,r:14,t:12,b:24};
+  const all=[...d.history,...d.forecast]; if(!all.length)return;
+  const nh=d.history.length,n=all.length;
+  const ymax=Math.max(...all.map(x=>x.net))*1.08;
+  const X=i=>pad.l+(W-pad.l-pad.r)*(i/(n-1||1)),Y=v=>pad.t+(H-pad.t-pad.b)*(1-v/(ymax||1));
+  const path=a=>a.map((p,i)=>`${i?'L':'M'}${X(p.i)},${Y(p.net)}`).join(' ');
+  const hist=d.history.map((p,i)=>({...p,i})),fc=d.forecast.map((p,i)=>({...p,i:nh+i}));
+  const join=nh>0?[hist[nh-1],...fc]:fc;
+  const yt=[0,ymax/2,ymax].map(v=>`<line x1="${pad.l}" y1="${Y(v)}" x2="${W-pad.r}" y2="${Y(v)}" stroke="${C.grid}"/><text class="tick" x="8" y="${Y(v)+3}">${short(v)}</text>`).join('');
+  const xt=all.map((p,i)=>i%14===0?`<text class="tick" text-anchor="middle" x="${X(i)}" y="${H-8}">${p.date.slice(5)}</text>`:'').join('');
+  const dots=all.map((p,i)=>{const isF=i>=nh;
+    return `<circle cx="${X(i)}" cy="${Y(p.net)}" r="${isF?3:2.4}" fill="${isF?C.s3:C.s1}" fill-opacity="${isF?1:.55}" data-drill="day" data-val="${p.date}"><title>${p.date}: ${money(p.net)} — click for breakdown</title></circle>`;}).join('');
+  $('trend-sub').textContent=`${d.history.length} days actual, then ${d.forecast.length} days forecast`;
+  $('trend').innerHTML=`<svg viewBox="0 0 ${W} ${H}">${yt}${xt}
+    <path d="${path(hist)}" fill="none" stroke="${C.s1}" stroke-width="2"/>
+    <path d="${path(join)}" fill="none" stroke="${C.s3}" stroke-width="2" stroke-dasharray="5 4"/>${dots}</svg>`;
+}
+function drawDOW(d){
+  const H=190,W=380,pad={l:34,r:8,t:16,b:22},n=d.length,max=Math.max(...d.map(x=>x.net))*1.12;
+  const gap=(W-pad.l-pad.r)/n,bw=gap*0.6,Y=v=>pad.t+(H-pad.t-pad.b)*(1-v/max);
+  const bars=d.map((x,i)=>{const cx=pad.l+gap*i+gap/2,y=Y(x.net),h=H-pad.b-y;
+    return `<rect x="${pad.l+gap*i}" y="${pad.t}" width="${gap}" height="${H-pad.b-pad.t}" fill="transparent" data-drill="dow" data-val="${i}"><title>${x.dow}: ${money(x.net)} (${x.index}×) — click</title></rect>
+    <rect x="${cx-bw/2}" y="${y}" width="${bw}" height="${h}" rx="3" fill="${C.s1}" pointer-events="none"/>
+    <text class="lbl" text-anchor="middle" x="${cx}" y="${y-4}" pointer-events="none">${x.index}×</text>
+    <text class="tick" text-anchor="middle" x="${cx}" y="${H-8}" pointer-events="none">${x.dow}</text>`;}).join('');
+  $('dow').innerHTML=`<svg viewBox="0 0 ${W} ${H}"><line x1="${pad.l}" y1="${H-pad.b}" x2="${W-pad.r}" y2="${H-pad.b}" stroke="${C.line}"/>${bars}</svg>`;
+}
+function drawDonut(d){
+  const total=d.reduce((a,b)=>a+b.net,0)||1,R=64,r=40,cx=90,cy=95; let a0=-Math.PI/2;
+  const arcs=d.map((x,i)=>{const frac=x.net/total,a1=a0+frac*2*Math.PI,p=(a,rr)=>[cx+rr*Math.cos(a),cy+rr*Math.sin(a)];
+    const [x1,y1]=p(a0,R),[x2,y2]=p(a1,R),[x3,y3]=p(a1,r),[x4,y4]=p(a0,r),big=frac>0.5?1:0;
+    a0=a1; return `<path d="M${x1},${y1}A${R},${R} 0 ${big} 1 ${x2},${y2}L${x3},${y3}A${r},${r} 0 ${big} 0 ${x4},${y4}Z" fill="${SC[i%6]}" data-drill="daypart" data-val="${x.daypart}"><title>${x.daypart}: ${money(x.net)} (${Math.round(frac*100)}%) — click</title></path>`;}).join('');
+  $('daypart').innerHTML=`<svg viewBox="0 0 180 190">${arcs}<text x="${cx}" y="${cy-2}" text-anchor="middle" class="lbl" style="font-size:13px;font-weight:700" pointer-events="none">${short(total)}</text><text x="${cx}" y="${cy+13}" text-anchor="middle" class="tick" pointer-events="none">net</text></svg>`;
+  $('daypart-legend').innerHTML=d.map((x,i)=>`<span><i style="background:${SC[i%6]}"></i>${x.daypart} ${Math.round(x.net/total*100)}%</span>`).join('');
+}
+function drawHBar(id,rows){
+  rows=rows.slice(0,10); const max=Math.max(...rows.map(r=>r.value))*1.02||1;
+  const rh=26,W=560,pad={l:130,r:64,t:4},bw=W-pad.l-pad.r,H=rows.length*rh+8;
+  const bars=rows.map((r,i)=>{const y=pad.t+i*rh,w=bw*r.value/max,fill=r.color||C.s1,
+    dr=r.dt?`data-drill="${r.dt}" data-val="${esc(r.dv)}"`:'';
+    return `<g ${dr}>${r.dt?`<rect x="0" y="${y}" width="${W}" height="${rh}" fill="transparent"/>`:''}
+    <text class="tick" text-anchor="end" x="${pad.l-8}" y="${y+rh/2+3}">${String(r.label).length>18?String(r.label).slice(0,17)+'…':r.label}</text>
+    <rect x="${pad.l}" y="${y+4}" width="${Math.max(w,1)}" height="${rh-10}" rx="3" fill="${fill}"><title>${r.label}: ${money(r.value)}${r.dt?' — click':''}</title></rect>
+    <text class="lbl" x="${pad.l+w+6}" y="${y+rh/2+3}">${short(r.value)}</text></g>`;}).join('');
+  $(id).innerHTML=`<svg viewBox="0 0 ${W} ${H}">${bars}</svg>`;
+}
+
+/* ---------- store detail ---------- */
+async function loadStore(){
+  bandChart(await get('/api/forecast/store_daily?store='+STORE));
+  const an=(await get('/api/anomalies')).filter(x=>x.store===STORE);
+  const el=$('anoms');
+  if(!an.length){el.innerHTML='<tr><td class="muted">No anomalies at this store</td></tr>';}
+  else{el.innerHTML='<tr><th>type</th><th>from</th><th>to</th><th>detail</th><th class="num">score</th></tr>'+
+    an.slice(0,14).map(r=>`<tr class="click" data-drill="anomaly" data-val="${r.anomaly_id}"><td><span class="pill t-${r.type}">${r.type.replace(/_/g,' ')}</span></td><td>${String(r.start_date).slice(0,10)}</td><td>${String(r.end_date).slice(0,10)}</td><td>${r.description}</td><td class="num">${r.score}</td></tr>`).join('');}
+  tbl('buying',await get('/api/buying?store='+STORE),[['sku','sku'],['reorder_qty','order',null,1],['uom','uom'],['on_hand','on hand',null,1],['lead_time_days','lead',null,1],['order_cost','cost',v=>money(v),1]],14);
+  tbl('thaw',await get('/api/prep/thaw?store='+STORE),[['pull_from_freezer_at','pull at',v=>String(v).slice(0,16).replace('T',' ')],['sku','sku',v=>`<span class="frozen">❄ ${v}</span>`],['qty','qty',null,1],['uom','uom'],['daypart','for'],['thaw_hours','hrs',null,1]],30);
+}
+function tbl(id,rows,cols,limit){const el=$(id);
+  if(!rows||!rows.length){el.innerHTML='<tr><td class="muted">No data</td></tr>';return;}
+  el.innerHTML='<tr>'+cols.map(c=>`<th class="${c[3]?'num':''}">${c[1]}</th>`).join('')+'</tr>'+
+    rows.slice(0,limit).map(r=>'<tr>'+cols.map(c=>{let v=r[c[0]];v=(c[2]?c[2](v):(v==null?'':v));return `<td class="${c[3]?'num':''}">${v}</td>`;}).join('')+'</tr>').join('');
+}
+function bandChart(data){
+  const W=1240,H=220,pad={l:56,r:14,t:12,b:24};
+  if(!data||!data.length){$('chart').innerHTML='<p class="muted">No forecast</p>';return;}
+  const ymax=Math.max(...data.map(d=>d.hi))*1.08;
+  const X=i=>pad.l+(W-pad.l-pad.r)*(i/(data.length-1||1)),Y=v=>pad.t+(H-pad.t-pad.b)*(1-v/(ymax||1));
+  const band='M'+data.map((d,i)=>`${X(i)},${Y(d.hi)}`).join(' L ')+' L '+data.map((d,i)=>`${X(data.length-1-i)},${Y(data[data.length-1-i].lo)}`).join(' L ')+' Z';
+  const line='M'+data.map((d,i)=>`${X(i)},${Y(d.net)}`).join(' L ');
+  const yt=[0,ymax/2,ymax].map(v=>`<line x1="${pad.l}" y1="${Y(v)}" x2="${W-pad.r}" y2="${Y(v)}" stroke="${C.grid}"/><text class="tick" x="8" y="${Y(v)+3}">${short(v)}</text>`).join('');
+  const xt=data.map((d,i)=>i%2?'':`<text class="tick" text-anchor="middle" x="${X(i)}" y="${H-8}">${String(d.target_date).slice(5)}</text>`).join('');
+  $('chart').innerHTML=`<svg viewBox="0 0 ${W} ${H}">${yt}${xt}<path d="${band}" fill="${C.band}"/><path d="${line}" fill="none" stroke="${C.acc}" stroke-width="2.5"/>${data.map((d,i)=>`<circle cx="${X(i)}" cy="${Y(d.net)}" r="2.6" fill="${C.acc}"><title>${d.target_date}: ${money(d.net)}</title></circle>`).join('')}</svg>`;
+}
+
+/* ---------- drill-down + drawer ---------- */
+document.addEventListener('click',e=>{
+  const cn=e.target.closest('[data-connect]'); if(cn){openConnect(cn.getAttribute('data-connect'));return;}
+  const pm=e.target.closest('[data-promote]'); if(pm){promoteUpload(pm.getAttribute('data-promote'));return;}
+  const sy=e.target.closest('[data-sync]'); if(sy){syncSource(sy.getAttribute('data-sync'));return;}
+  const t=e.target.closest('[data-drill]'); if(!t)return;
+  const kind=t.getAttribute('data-drill'),val=t.getAttribute('data-val');
+  if(kind==='anomaly') return openAnomaly(val);
+  if(kind==='store'){showTab('stores');STORE=val;$('store').value=val;loadStore();setTimeout(()=>$('storesec').scrollIntoView({behavior:'smooth'}),60);return;}
+  if(kind==='cat') return drillBreak(`Category · ${val}`,'Forecast net revenue by item',`/api/analytics/breakdown?by=menu_item&category=${encodeURIComponent(val)}`);
+  if(kind==='daypart') return drillBreak(`Daypart · ${val}`,'Forecast net revenue by item',`/api/analytics/breakdown?by=menu_item&daypart=${encodeURIComponent(val)}`);
+  if(kind==='item') return drillBreak('Item breakdown','Forecast net revenue by store',`/api/analytics/breakdown?by=store&menu_item_id=${encodeURIComponent(val)}`);
+  if(kind==='dow') return drillDow(val);
+  if(kind==='day') return drillDay(val);
+});
+function openDrawer(title){$('dtitle').innerHTML=title;$('ov').classList.add('open');$('drawer').classList.add('open');}
+function closeDrawer(){$('ov').classList.remove('open');$('drawer').classList.remove('open');}
+
+async function drillBreak(title,sub,url){
+  openDrawer(title);$('dbody').innerHTML='<p class="muted">Loading…</p>';
+  const rows=await get(url);
+  $('dbody').innerHTML=`<p class="sub">${sub}</p><div id="dchart"></div>`+bkTable(rows);
+  hbarInto('dchart',rows.map((r,i)=>({label:r.label,value:r.net})));
+}
+async function drillDow(i){
+  const names=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  openDrawer(names[i]||'Day');$('dbody').innerHTML='<p class="muted">Loading…</p>';
+  const d=await get('/api/analytics/dow_detail?dow='+i);
+  $('dbody').innerHTML=`<p class="sub">Historical net revenue on ${names[i]}s (last 120 days)</p>
+    <h4 style="margin:6px 0;font-size:12px;color:var(--muted)">BY DAYPART</h4><div id="d1"></div>
+    <h4 style="margin:14px 0 6px;font-size:12px;color:var(--muted)">BY STORE</h4><div id="d2"></div>`;
+  hbarInto('d1',d.daypart); hbarInto('d2',d.stores);
+}
+async function drillDay(date){
+  openDrawer(date);$('dbody').innerHTML='<p class="muted">Loading…</p>';
+  const d=await get('/api/analytics/day_detail?date='+date);
+  $('dbody').innerHTML=`<p class="sub">${d.source==='actual'?'Actual':'Forecast'} net revenue on ${d.date}</p>
+    <h4 style="margin:6px 0;font-size:12px;color:var(--muted)">BY STORE</h4><div id="d1"></div>
+    <h4 style="margin:14px 0 6px;font-size:12px;color:var(--muted)">BY CATEGORY</h4><div id="d2"></div>`;
+  hbarInto('d1',d.stores); hbarInto('d2',d.category);
+}
+function bkTable(rows){
+  return '<table style="margin-top:12px"><tr><th></th><th class="num">net</th><th class="num">units</th></tr>'+
+    rows.map(r=>`<tr><td>${r.label}</td><td class="num">${money(r.net)}</td><td class="num">${r.units!=null?Number(r.units).toLocaleString():''}</td></tr>`).join('')+'</table>';
+}
+function hbarInto(id,rows){
+  rows=rows.slice(0,12); const max=Math.max(...rows.map(r=>r.value))*1.02||1;
+  const rh=24,W=520,pad={l:150,r:60,t:2},bw=W-pad.l-pad.r,H=rows.length*rh+6;
+  const bars=rows.map((r,i)=>{const y=pad.t+i*rh,w=bw*r.value/max;
+    return `<text class="tick" text-anchor="end" x="${pad.l-8}" y="${y+rh/2+3}">${String(r.label).length>22?String(r.label).slice(0,21)+'…':r.label}</text>
+    <rect x="${pad.l}" y="${y+4}" width="${Math.max(w,1)}" height="${rh-9}" rx="3" fill="${C.s1}"><title>${r.label}: ${money(r.value)}</title></rect>
+    <text class="lbl" x="${pad.l+w+6}" y="${y+rh/2+3}">${short(r.value)}</text>`;}).join('');
+  $(id).innerHTML=`<svg viewBox="0 0 ${W} ${H}">${bars}</svg>`;
+}
+
+async function openAnomaly(aid){
+  openDrawer('Anomaly · '+aid);$('dbody').innerHTML='<p class="muted">Loading…</p>';
+  const d=await get('/api/anomaly_detail?anomaly_id='+aid);
+  const a=d.anomaly;
+  const kv=[['Type',a.type.replace(/_/g,' ')],['Store',a.store],['Target',a.target||'—'],
+    ['Window',`${String(a.start_date).slice(0,10)} → ${String(a.end_date).slice(0,10)}`],
+    ['Score',a.score],['Expected',a.expected!=null?a.expected:'—'],['Observed',a.observed!=null?a.observed:'—']];
+  const vpill=a.council_verdict==='confirmed'?`<span class="pill" style="background:rgba(224,87,87,.16);color:var(--critical)">CONFIRMED ${Math.round((a.council_confidence||0)*100)}%</span>`:`<span class="pill" style="background:var(--panel2);color:var(--muted)">REVIEW ${Math.round((a.council_confidence||0)*100)}%</span>`;
+  let html=`<div class="note">${a.description}</div>
+    <div style="margin:0 0 12px"><b style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Council verdict</b> ${vpill}
+    <div class="sub" style="margin-top:5px">${a.council_note||''}</div></div>
+    <div class="kv">`+kv.map(([k,v])=>`<div class="k">${k}</div><div class="v">${v}</div>`).join('')+`</div>`;
+  if(d.context_type==='actual_vs_expected'){
+    html+=`<p class="sub">Daily ${d.unit_label} — actual vs expected (flagged window in red)</p><div id="ac"></div>
+      <div class="legend"><span><i style="background:${C.acc}"></i>actual</span><span><i style="background:${C.muted}"></i>expected</span><span><i style="background:${C.crit}"></i>flagged</span></div>`;
+  }else if(d.context_type==='comp_pct'){
+    html+=`<p class="sub">Daily comp % of net — vs store baseline ${(d.baseline*100).toFixed(1)}% (flagged window in red)</p><div id="ac"></div>
+      <div class="legend"><span><i style="background:${C.acc}"></i>comp %</span><span><i style="background:${C.muted}"></i>baseline</span><span><i style="background:${C.crit}"></i>flagged</span></div>`;
+  }else if(d.context_type==='inventory'){
+    html+=`<p class="sub">Weekly counted on-hand vs theoretical (flagged count in red)</p><div id="ac"></div>
+      <div class="legend"><span><i style="background:${C.acc}"></i>counted</span><span><i style="background:${C.muted}"></i>theoretical</span><span><i style="background:${C.crit}"></i>flagged</span></div>`;
+  }
+  $('dbody').innerHTML=html;
+  if(d.series&&d.series.length) miniLine('ac',d.series,d.context_type==='comp_pct'?(v=>v.toFixed(1)+'%'):short);
+}
+function miniLine(id,series,yfmt){
+  const H=190,W=520,pad={l:44,r:12,t:10,b:22},n=series.length;
+  const vals=series.flatMap(p=>[p.actual,p.expected]).filter(v=>v!=null);
+  const ymax=Math.max(...vals)*1.1,ymin=Math.min(0,...vals);
+  const X=i=>pad.l+(W-pad.l-pad.r)*(i/(n-1||1)),Y=v=>pad.t+(H-pad.t-pad.b)*(1-(v-ymin)/(ymax-ymin||1));
+  const lp=key=>series.map((p,i)=>p[key]==null?null:`${X(i)},${Y(p[key])}`).filter(Boolean).map((c,i)=>`${i?'L':'M'}${c}`).join(' ');
+  const yt=[ymin,(ymin+ymax)/2,ymax].map(v=>`<line x1="${pad.l}" y1="${Y(v)}" x2="${W-pad.r}" y2="${Y(v)}" stroke="${C.grid}"/><text class="tick" x="4" y="${Y(v)+3}">${yfmt(v)}</text>`).join('');
+  const xt=series.map((p,i)=>i%Math.ceil(n/6)===0?`<text class="tick" text-anchor="middle" x="${X(i)}" y="${H-7}">${String(p.date).slice(5)}</text>`:'').join('');
+  const dots=series.map((p,i)=>p.actual==null?'':`<circle cx="${X(i)}" cy="${Y(p.actual)}" r="${p.in_window?4:2.2}" fill="${p.in_window?C.crit:C.acc}"><title>${p.date}: ${p.actual}${yfmt===short?'':'%'}${p.in_window?' (flagged)':''}</title></circle>`).join('');
+  $(id).innerHTML=`<svg viewBox="0 0 ${W} ${H}">${yt}${xt}
+    <path d="${lp('expected')}" fill="none" stroke="${C.muted}" stroke-width="1.6" stroke-dasharray="4 4"/>
+    <path d="${lp('actual')}" fill="none" stroke="${C.acc}" stroke-width="2"/>${dots}</svg>`;
+}
+/* ---------- ask (NL→SQL) ---------- */
+async function loadAskPage(){
+  if(!$('askbtn')._wired){$('askbtn')._wired=1;
+    $('askbtn').onclick=runAsk; $('askbox').onkeydown=e=>{if(e.key==='Enter')runAsk();};
+    $('asksuggest').innerHTML=['top 5 items by revenue','sales by daypart','anomalies at KFC-0533','reorders for KFC-0421','forecast for KFC-0888','sales by region']
+      .map(s=>`<button class="btn ghost" style="padding:5px 10px;font-size:12px" onclick="$('askbox').value='${s}';runAsk()">${s}</button>`).join('');
+  }
+}
+async function runAsk(){
+  const q=$('askbox').value.trim(); if(!q)return;
+  const box=$('askresult'); box.style.display='block'; box.innerHTML='<p class="muted">Thinking…</p>';
+  const d=await(await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q})})).json();
+  let html=`<h3>${d.answer||'Result'}</h3>`;
+  if(d.sql) html+=`<div class="note" style="font-family:ui-monospace,monospace;font-size:11.5px;white-space:pre-wrap">${d.sql}</div>`;
+  if(d.suggestions) html+=`<p class="sub">Try: ${d.suggestions.map(s=>`<a href="#" onclick="$('askbox').value='${s}';runAsk();return false">${s}</a>`).join(' · ')}</p>`;
+  if(d.rows&&d.rows.length){
+    const cols=d.columns||Object.keys(d.rows[0]);
+    html+='<div class="scroll"><table><tr>'+cols.map(c=>`<th>${c}</th>`).join('')+'</tr>'+
+      d.rows.slice(0,50).map(r=>'<tr>'+cols.map(c=>{let v=r[c];if(typeof v==='number')v=v.toLocaleString();return `<td>${v==null?'':v}</td>`;}).join('')+'</tr>').join('')+'</table></div>';
+  }else if(!d.suggestions){html+='<p class="muted">No rows.</p>';}
+  box.innerHTML=html;
+}
+
+/* ---------- data lineage ---------- */
+async function loadDataPage(){
+  const d=await get('/api/lineage');
+  $('lineage-meta').textContent=`Object store: ${d.object_store} · Orchestration: ${d.orchestration}`;
+  const tot=l=>d.layers[l].reduce((a,b)=>a+(b.rows||0),0);
+  const flow='<div class="lflow">'+['bronze','silver','gold'].map((l,i)=>
+    `${i?'<span class="larr">→</span>':''}<div class="lchip ${l}"><span class="ld"></span><b>${l}</b><span class="cnt">${tot(l).toLocaleString()} rows</span></div>`).join('')+'</div>';
+  const panel=(l,label,sub)=>`<div class="lyr ${l}"><div class="hd">${label}<span style="margin-left:auto;font-weight:500;opacity:.85;font-size:11px">${sub}</span></div>`+
+    d.layers[l].map(a=>`<div class="asset"><div><div class="nm">${a.asset}</div><div class="meta">${a.source}${a.fresh?' · '+a.fresh:''}</div></div><div class="cnt">${Number(a.rows).toLocaleString()}</div></div>`).join('')+'</div>';
+  $('lineage').innerHTML=flow+`<div class="grid3">${panel('bronze','Bronze · raw','ingested')}${panel('silver','Silver · conformed','canonical')}${panel('gold','Gold · outputs','decisions')}</div>`;
+}
+
+/* ---------- forecast page ---------- */
+async function loadBacktest(){
+  const b=await get('/api/backtest');
+  $('bt-sub').textContent=`· held out ${b.horizon_days}d (through ${b.through}) · ${b.points_scored.toLocaleString()} points`;
+  $('bt-tiles').innerHTML=[
+    ['MAE',b.mae+' units','mean abs error'],['MAPE',b.mape_pct+'%','mean abs % error'],
+    ['Band coverage',b.band_coverage_pct+'%','p05–p95 · target ~90%'],
+    ['Skill vs naive',(b.skill_vs_naive_pct>=0?'+':'')+b.skill_vs_naive_pct+'%','beats last-week baseline'],
+    ['Bias',b.bias+' units','over/under'],
+  ].map(([k,v,s])=>`<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
+}
+async function loadForecastPage(){
+  loadBacktest();
+  if(!$('fc_store').options.length){
+    const [st,items]=await Promise.all([get('/api/stores'),get('/api/items')]);
+    $('fc_store').innerHTML=st.map(x=>`<option>${x.store}</option>`).join('');
+    $('fc_item').innerHTML=items.map(x=>`<option value="${x.menu_item_id}">${x.name}</option>`).join('');
+    $('fc_daypart').innerHTML=['All','lunch','dinner','late'].map(d=>`<option>${d}</option>`).join('');
+    ['fc_store','fc_item','fc_daypart'].forEach(id=>$(id).onchange=renderForecast);
+  }
+  renderForecast();
+}
+async function renderForecast(){
+  const store=$('fc_store').value,item=$('fc_item').value,dp=$('fc_daypart').value;
+  let url=`/api/forecast?store=${store}&item=${encodeURIComponent(item)}&days=21`; if(dp!=='All')url+=`&daypart=${dp}`;
+  const rows=await get(url);
+  $('fc_title').textContent=`${$('fc_item').selectedOptions[0].text} · ${store}${dp!=='All'?' · '+dp:' · all dayparts'}`;
+  const byd={};
+  rows.forEach(r=>{const d=r.target_date;(byd[d]=byd[d]||{date:d,p05:0,p50:0,p95:0,net:0}); byd[d].p05+=+r.p05;byd[d].p50+=+r.p50;byd[d].p95+=+r.p95;byd[d].net+=+r.expected_net;});
+  const data=Object.values(byd).sort((a,b)=>a.date<b.date?-1:1);
+  fcChart(data);
+  const el=$('fc_table');
+  if(!data.length){el.innerHTML='<tr><td class="muted">No forecast for this selection</td></tr>';return;}
+  el.innerHTML='<tr><th>date</th><th class="num">p05</th><th class="num">p50 (expected)</th><th class="num">p95</th><th class="num">exp. net</th></tr>'+
+    data.map(r=>`<tr><td>${r.date}</td><td class="num">${r.p05.toFixed(1)}</td><td class="num">${r.p50.toFixed(1)}</td><td class="num">${r.p95.toFixed(1)}</td><td class="num">${money(r.net)}</td></tr>`).join('');
+}
+function fcChart(data){
+  const W=1240,H=240,pad={l:48,r:14,t:12,b:24};
+  if(!data.length){$('fc_chart').innerHTML='<p class="muted">No forecast</p>';return;}
+  const hi=Math.max(...data.map(d=>d.p95))*1.08||1;
+  const X=i=>pad.l+(W-pad.l-pad.r)*(i/(data.length-1||1)),Y=v=>pad.t+(H-pad.t-pad.b)*(1-v/hi);
+  const band='M'+data.map((d,i)=>`${X(i)},${Y(d.p95)}`).join(' L ')+' L '+data.map((d,i)=>`${X(data.length-1-i)},${Y(data[data.length-1-i].p05)}`).join(' L ')+' Z';
+  const line='M'+data.map((d,i)=>`${X(i)},${Y(d.p50)}`).join(' L ');
+  const yt=[0,hi/2,hi].map(v=>`<line x1="${pad.l}" y1="${Y(v)}" x2="${W-pad.r}" y2="${Y(v)}" stroke="${C.grid}"/><text class="tick" x="8" y="${Y(v)+3}">${v.toFixed(0)}</text>`).join('');
+  const xt=data.map((d,i)=>i%3?'':`<text class="tick" text-anchor="middle" x="${X(i)}" y="${H-8}">${d.date.slice(5)}</text>`).join('');
+  $('fc_chart').innerHTML=`<svg viewBox="0 0 ${W} ${H}">${yt}${xt}<path d="${band}" fill="${C.band}"/><path d="${line}" fill="none" stroke="${C.acc}" stroke-width="2.5"/>${data.map((d,i)=>`<circle cx="${X(i)}" cy="${Y(d.p50)}" r="2.6" fill="${C.acc}"><title>${d.date}: ${d.p50.toFixed(0)} units</title></circle>`).join('')}</svg>`;
+}
+
+/* ---------- settings page + pipeline ---------- */
+async function loadSettingsPage(){
+  const d=await get('/api/settings');
+  $('settingsform').innerHTML=d.fields.map(f=>{
+    if(f.type==='select') return `<div class="field"><label>${f.label}</label><select data-setkey="${f.key}">${f.options.map(o=>`<option ${o===f.value?'selected':''}>${o}</option>`).join('')}</select></div>`;
+    return `<div class="field"><label>${f.label}</label><input data-setkey="${f.key}" type="number" step="any" value="${f.value}"></div>`;}).join('');
+  $('savesettings').onclick=async()=>{
+    const vals={}; document.querySelectorAll('[data-setkey]').forEach(el=>vals[el.getAttribute('data-setkey')]=el.value);
+    $('setmsg').textContent='Saving…';
+    await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(vals)});
+    $('setmsg').textContent='Saved · run the pipeline to apply.';
+  };
+  $('runpipe').onclick=()=>runPipeline('pipemsg');
+  loadLLMConfig(); loadUsers();
+}
+async function loadUsers(){
+  if(!USER||!USER.permissions.includes('admin')){$('userscard').style.display='none';return;}
+  const us=await get('/api/auth/users');
+  $('userstable').innerHTML='<tr><th>username</th><th>role</th><th>store</th><th>active</th><th></th></tr>'+
+    us.map(u=>`<tr><td><b>${u.username}</b></td><td><span class="role-badge">${u.role}</span></td><td class="muted">${u.store||'—'}</td><td>${u.active?'✓':'✗'}</td><td>${u.username!=='admin'?`<button class="btn ghost" style="padding:3px 9px" onclick="delUser('${u.username}')">Delete</button>`:''}</td></tr>`).join('');
+  $('userform').innerHTML=`<input class="ipt" id="nu_user" placeholder="username">
+    <input class="ipt" id="nu_pass" type="password" placeholder="password">
+    <select class="ipt" id="nu_role">${['viewer','analyst','manager','admin'].map(r=>`<option>${r}</option>`).join('')}</select>
+    <input class="ipt" id="nu_store" placeholder="store (optional)" style="width:130px">
+    <button class="btn" onclick="saveUser()">Add / update</button>`;
+}
+async function saveUser(){
+  const v={username:$('nu_user').value.trim(),password:$('nu_pass').value,role:$('nu_role').value,store:$('nu_store').value.trim()};
+  const r=await(await fetch('/api/auth/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(v)})).json();
+  $('usermsg').textContent=r.error?('❌ '+r.error):('✅ Saved '+r.username);
+  if(!r.error)loadUsers();
+}
+async function delUser(u){await fetch('/api/auth/users/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u})});loadUsers();}
+async function loadLLMConfig(){
+  const lc=await get('/api/report/ai/config');
+  $('llmform').innerHTML=
+    `<div class="field"><label>Provider</label><select id="s_llm_provider">${['none','anthropic','openai'].map(o=>`<option ${o===lc.provider?'selected':''}>${o}</option>`).join('')}</select></div>
+     <div class="field"><label>LLM URL endpoint <span class="hint">· base URL for an OpenAI-compatible API (leave blank for Anthropic / OpenAI default)</span></label><input id="s_llm_base" value="${(lc.base_url||'').replace(/"/g,'&quot;')}" placeholder="https://your-llm-host/v1"></div>
+     <div class="field"><label>Model</label><input id="s_llm_model" value="${(lc.model||'').replace(/"/g,'&quot;')}" placeholder="claude-sonnet-5"></div>
+     <div class="field"><label>API key ${lc.configured?'<span class="sec">· set</span>':''}</label><input id="s_llm_key" type="password" placeholder="${lc.configured?'•••• keep existing':'paste key'}"></div>`;
+  $('savellm').onclick=async()=>{
+    const v={provider:$('s_llm_provider').value,base_url:$('s_llm_base').value,model:$('s_llm_model').value};
+    if($('s_llm_key').value)v.api_key=$('s_llm_key').value;
+    $('llmmsg').textContent='Saving…';
+    const r=await(await fetch('/api/report/ai/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(v)})).json();
+    $('llmmsg').textContent=r.configured?'✅ Saved — LLM configured ('+r.provider+').':'✅ Saved — LLM disabled (built-in analyst will be used).';
+  };
+  $('testllm').onclick=async()=>{
+    $('llmmsg').textContent='Testing…';
+    const d=await get('/api/report/ai?lang=en');
+    const ok=!/built-in analyst/.test(d.model);
+    $('llmmsg').textContent=(ok?'✅ Connected — ':'ℹ️ ')+'model: '+d.model;
+  };
+}
+async function runPipeline(msgId){
+  const el=$(msgId); el.style.display='block'; el.textContent='Starting pipeline…';
+  await fetch('/api/pipeline/run',{method:'POST'});
+  const poll=async()=>{const s=await get('/api/pipeline/status');
+    if(s.state==='running'){el.textContent='⏳ Running… re-ingesting, forecasting, detecting anomalies, planning. (Chronos-2 takes ~1–2 min)'; setTimeout(poll,3000);}
+    else if(s.state==='done'){const x=s.summary||{}; el.innerHTML=`✅ Done in ${x.seconds}s — <b>${x.series_forecast}</b> series via <b>${x.backend}</b>, ${x.anomalies} anomalies, ${x.skus_to_reorder} SKUs to reorder.`;}
+    else if(s.state==='error'){el.textContent='❌ Error: '+s.error;}
+    else el.textContent=s.state;};
+  poll();
+}
+async function syncSource(id){
+  $('src_pipemsg').innerHTML='⏳ Pulling a live batch from '+id+'…';
+  const j=await(await fetch('/api/sources/sync',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({connector_id:id})})).json();
+  $('src_pipemsg').innerHTML=j.error?('❌ '+j.error):`✅ Pulled ${j.pulled_rows} rows from ${j.connector} → ${j.staged_into}. Promote it below, then Run pipeline.`;
+  loadSources();
+}
+async function promoteUpload(table){
+  const r=await fetch('/api/sources/promote',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({target_table:table})});
+  const j=await r.json();
+  $('src_pipemsg').innerHTML=j.error?('❌ '+j.error):`✅ Promoted ${j.rows_appended} row(s) into ${j.promoted_into} (now ${Number(j.canonical_rows_now).toLocaleString()} rows). Click <b>Run pipeline</b> to forecast against it.`;
+}
+
+/* ---------- stores page ---------- */
+async function loadStoresPage(){
+  const sss=await get('/api/analytics/sss');
+  const chip=sss.chain_sss_pct==null?'':`<span class="pill" style="background:${sss.chain_sss_pct>=0?'rgba(12,163,12,.14)':'rgba(224,87,87,.14)'};color:${sss.chain_sss_pct>=0?'var(--good)':'var(--critical)'}">${sss.chain_sss_pct>=0?'+':''}${sss.chain_sss_pct}%</span>`;
+  $('ssscard').innerHTML=`<h3>Same-store sales ${chip} <span class="hint">· ${sss.comparable.length} comparable stores · last ${sss.period_days}d YoY</span></h3>`+
+    `<div class="scroll"><table><tr><th>store</th><th>region</th><th class="num">current</th><th class="num">a year ago</th><th class="num">YoY</th></tr>`+
+    sss.comparable.map(r=>`<tr><td>${r.store}</td><td class="muted">${r.region}</td><td class="num">${short(r.current)}</td><td class="num">${short(r.prior)}</td><td class="num" style="color:${r.growth_pct>=0?'var(--good)':'var(--critical)'}">${r.growth_pct>=0?'+':''}${r.growth_pct}%</td></tr>`).join('')+
+    (sss.new_stores.length?`<tr><td colspan="5" class="muted" style="padding-top:9px">New stores (excluded, ramping): ${sss.new_stores.map(n=>n.store+' — opened '+String(n.opened).slice(0,7)).join(' · ')}</td></tr>`:'')+`</table></div>`;
+  const ov=await get('/api/stores/overview');
+  $('storetable').innerHTML='<tr><th>store</th><th>region</th><th class="num">forecast (14d)</th><th class="num">anomalies</th><th class="num">reorder cost</th><th>top item</th></tr>'+
+    ov.map(r=>`<tr class="click" data-drill="store" data-val="${r.store}"><td><b>${r.store}</b></td><td class="muted">${r.region}</td><td class="num">${money(r.forecast_net)}</td><td class="num">${r.anomalies}</td><td class="num">${money(r.reorder_cost)}</td><td>${r.top_item}</td></tr>`).join('');
+}
+
+/* ---------- anomalies page ---------- */
+let ANOMS=[],ANOMF='ALL';
+async function loadAnomaliesPage(){
+  ANOMS=await get('/api/anomalies');
+  const by={}; ANOMS.forEach(a=>by[a.type]=(by[a.type]||0)+1);
+  $('anomtiles').innerHTML=[['Total',ANOMS.length,'flagged'],...Object.entries(by).map(([t,n])=>[t.replace(/_/g,' '),n,''])]
+    .map(([k,v,s])=>`<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
+  const types=['ALL',...Object.keys(by)];
+  $('anomfilter').innerHTML=types.map(t=>`<button class="btn ${t===ANOMF?'':'ghost'}" onclick="setAnomFilter('${t}')">${t==='ALL'?'All':t.replace(/_/g,' ')}</button>`).join('');
+  renderAnomTable();
+}
+function setAnomFilter(t){ANOMF=t;
+  document.querySelectorAll('#anomfilter .btn').forEach(b=>b.classList.toggle('ghost',b.textContent!==(t==='ALL'?'All':t.replace(/_/g,' '))));
+  renderAnomTable();}
+function renderAnomTable(){
+  const rows=ANOMS.filter(a=>ANOMF==='ALL'||a.type===ANOMF);
+  $('anomall').innerHTML='<tr><th>type</th><th>store</th><th>council</th><th>from</th><th>to</th><th class="num">score</th><th>detail</th></tr>'+
+    rows.map(r=>{const cf=Math.round((r.council_confidence||0)*100);const v=r.council_verdict==='confirmed'?`<span class="pill" style="background:rgba(224,87,87,.14);color:var(--critical)">✓ ${cf}%</span>`:`<span class="pill" style="background:var(--panel2);color:var(--muted)">? ${cf}%</span>`;
+    return `<tr class="click" data-drill="anomaly" data-val="${r.anomaly_id}"><td><span class="pill t-${r.type}">${r.type.replace(/_/g,' ')}</span></td><td>${r.store}</td><td>${v}</td><td>${String(r.start_date).slice(0,10)}</td><td>${String(r.end_date).slice(0,10)}</td><td class="num">${r.score}</td><td>${r.description}</td></tr>`;}).join('');
+}
+
+/* ---------- inventory page ---------- */
+async function loadInventoryPage(){
+  const [b,thaw]=await Promise.all([get('/api/analytics/buying_summary'),get('/api/prep/thaw_all')]);
+  const t=b.totals||{};
+  $('invtiles').innerHTML=[['Reorder cost',short(t.cost||0),'suggested POs'],['SKUs to reorder',t.skus||0,''],
+    ['Stores',t.stores||0,''],['Order lines',t.lines||0,'']]
+    .map(([k,v,s])=>`<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
+  drawHBar('invsku',(b.by_sku||[]).map(r=>({label:r.label,value:r.value})));
+  drawHBar('invstore',(b.by_store||[]).map(r=>({label:r.label,value:r.value,dt:'store',dv:r.label})));
+  const el=$('invthaw');
+  if(!thaw.length){el.innerHTML='<tr><td class="muted">No thaw tasks</td></tr>';}
+  else el.innerHTML='<tr><th>pull at</th><th>store</th><th>sku</th><th class="num">qty</th><th>uom</th><th>for</th><th class="num">hrs</th></tr>'+
+    thaw.slice(0,60).map(r=>`<tr><td>${String(r.pull_from_freezer_at).slice(0,16).replace('T',' ')}</td><td>${r.store}</td><td><span class="frozen">❄ ${r.sku}</span></td><td class="num">${Number(r.qty).toLocaleString(undefined,{maximumFractionDigits:1})}</td><td>${r.uom}</td><td>${r.daypart}</td><td class="num">${r.thaw_hours}</td></tr>`).join('');
+}
+
+/* ---------- alerts page ---------- */
+async function loadAlertsPage(){
+  const d=await get('/api/alerts'); const c=d.config;
+  const F=[['enabled','Enabled','select',['false','true']],['mode','Mode (digest = one summary)','select',['digest','per_event']],
+    ['min_confidence','Min council confidence (0–1)','text'],['emails','Recipient emails (comma-separated)','text'],
+    ['webhook_url','Teams / Slack webhook URL','text'],['smtp_host','SMTP host','text'],['smtp_port','SMTP port','text'],
+    ['smtp_user','SMTP user','text'],['smtp_pass','SMTP password','password'],['smtp_from','From address','text']];
+  $('alertform').innerHTML=F.map(([k,label,typ,opts])=>{
+    if(typ==='select')return `<div class="field"><label>${label}</label><select data-ak="${k}">${opts.map(o=>`<option ${o===c[k]?'selected':''}>${o}</option>`).join('')}</select></div>`;
+    return `<div class="field"><label>${label}</label><input data-ak="${k}" type="${typ}" value="${String(c[k]||'').replace(/"/g,'&quot;')}"></div>`;}).join('');
+  $('savealerts').onclick=async()=>{const v={};document.querySelectorAll('[data-ak]').forEach(e=>v[e.getAttribute('data-ak')]=e.value);await fetch('/api/alerts/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(v)});alertMsg('✅ Saved. Alerts '+(v.enabled==='true'?'enabled':'disabled')+'.');};
+  $('testalert').onclick=async()=>{const r=await(await fetch('/api/alerts/test',{method:'POST'})).json();alertMsg(`Test sent — email: ${r.email} · webhook: ${r.webhook}. ${r.note}`);};
+  $('dispatchalert').onclick=async()=>{const r=await(await fetch('/api/alerts/dispatch',{method:'POST'})).json();alertMsg(`Dispatched ${r.sent||0} (${r.mode||'—'}) — email: ${r.email||'—'} · webhook: ${r.webhook||'—'}`);setTimeout(loadAlertsPage,300);};
+  $('routetable').innerHTML='<tr><th>anomaly type</th><th>routed to</th></tr>'+Object.entries(d.routing).map(([t,v])=>`<tr><td><span class="pill t-${t}">${t.replace(/_/g,' ')}</span></td><td>${v[0]}</td></tr>`).join('');
+  const el=$('notiflog');
+  if(!d.recent.length)el.innerHTML='<tr><td class="muted">No notifications yet — enable alerts + “Dispatch now”</td></tr>';
+  else el.innerHTML='<tr><th>when</th><th>type</th><th>store</th><th>team</th><th>channel</th><th>message</th></tr>'+
+    d.recent.map(r=>`<tr><td class="muted">${String(r.sent_at).slice(0,16).replace('T',' ')}</td><td>${r.type.replace(/_/g,' ')}</td><td>${r.store}</td><td class="muted">${r.team}</td><td class="muted">${r.channel}</td><td>${r.message}</td></tr>`).join('');
+}
+function alertMsg(t){const e=$('alertmsg');e.style.display='block';e.textContent=t;}
+
+/* ---------- reports page ---------- */
+let REPLIST=[];
+async function loadReportsPage(){
+  const [list,st]=await Promise.all([get('/api/reports'),get('/api/stores')]);
+  REPLIST=list;
+  if(!$('rp_store').options.length) $('rp_store').innerHTML='<option value="">All stores</option>'+st.map(x=>`<option>${x.store}</option>`).join('');
+  const RICON={sales_summary:'🏪',sales_category:'🍗',sales_daypart:'🕐',item_performance:'📋',daily_sales:'📈',void_comp:'🚫',store_performance:'🏆',same_store_sales:'📊',forecast_next14:'🔮',anomaly_log:'🚨',buying_plan:'📦',thaw_plan:'❄️'};
+  $('reportcards').innerHTML=list.map(r=>{const pf=r.params.length?`<span class="rtag">${r.params.join(' · ')}</span>`:'';
+    return `<div class="rcard"><div class="rtop"><span class="ric">${RICON[r.name]||'📄'}</span><div class="rti">${r.title}</div></div><p class="rds">${r.desc}</p><div class="ract"><button class="btn" onclick="runReport('${r.name}')">Run report</button><a class="btn ghost" id="csv_${r.name}" style="text-decoration:none" href="#" onclick="return false">CSV</a>${pf}</div></div>`;}).join('');
+  fixCsvLinks();
+  $('genai').onclick=generateAI;
+  loadAICfg();
+  get('/api/feeds/info').then(pbi=>{$('pbi2body').innerHTML=`<div class="kv" style="margin-top:6px">
+    <div class="k">OData feed</div><div class="v" style="font-family:ui-monospace,monospace;font-size:12px">${pbi.odata_url}</div>
+    <div class="k">Entities</div><div class="v">${pbi.entities.join(' · ')}</div>
+    <div class="k">Postgres (read-only)</div><div class="v" style="font-family:ui-monospace,monospace;font-size:12px">${pbi.postgres.host}:${pbi.postgres.port}/${pbi.postgres.database}</div></div>
+    <p class="sub" style="margin-top:8px">${pbi.how_to}</p>`;});
+  ['rp_from','rp_to','rp_store'].forEach(id=>$(id).onchange=fixCsvLinks);
+}
+function rpQuery(name){
+  const r=(REPLIST.find(x=>x.name===name)||{params:[]});
+  const q=[];
+  if(r.params.includes('date')){if($('rp_from').value)q.push('date_from='+$('rp_from').value);if($('rp_to').value)q.push('date_to='+$('rp_to').value);}
+  if(r.params.includes('store')&&$('rp_store').value)q.push('store='+encodeURIComponent($('rp_store').value));
+  return q.length?'?'+q.join('&'):'';
+}
+function fixCsvLinks(){REPLIST.forEach(r=>{const a=$('csv_'+r.name);if(a)a.href='/api/report/'+r.name+'.csv'+rpQuery(r.name);});}
+async function runReport(name){
+  const box=$('reportout');box.style.display='block';box.innerHTML='<p class="muted">Running…</p>';box.scrollIntoView({behavior:'smooth'});
+  const q=rpQuery(name);
+  const d=await get('/api/report/'+name+q);
+  if(d.error){box.innerHTML='<p class="muted">'+d.error+'</p>';return;}
+  const mc=d.columns.filter(c=>/vnd|cost|net/i.test(c));
+  const per=d.period&&d.period.from?` · ${d.period.from} → ${d.period.to}`:'';
+  box.innerHTML=`<h3>${d.title} <a class="btn ghost" style="float:right;text-decoration:none;padding:5px 11px" href="/api/report/${name}.csv${q}">Export CSV</a><button class="btn ghost" style="float:right;margin-right:8px;padding:5px 11px" onclick="window.print()">Print</button></h3><p class="sub">${d.desc} · ${d.rows.length} rows${per}</p>`+
+    '<div class="scroll"><table><tr>'+d.columns.map(c=>`<th>${c}</th>`).join('')+'</tr>'+
+    d.rows.slice(0,400).map(r=>'<tr>'+d.columns.map(c=>{let v=r[c];if(mc.includes(c)&&typeof v==='number')v=money(v);else if(typeof v==='number')v=v.toLocaleString();return `<td>${v==null?'':v}</td>`;}).join('')+'</tr>').join('')+'</table></div>';
+}
+async function generateAI(){
+  const box=$('airep');box.innerHTML='<p class="muted">Generating…</p>';
+  const d=await get('/api/report/ai?lang='+LANG);
+  box.innerHTML=`<p class="sub">Model: ${d.model} · data through ${d.generated_for}</p>`+
+    d.sections.map(s=>`<h4 style="margin:14px 0 4px;font-size:14px">${s.heading}</h4><div style="white-space:pre-wrap;font-size:13.5px;line-height:1.55">${s.body.trim()}</div>`).join('');
+}
+async function loadAICfg(){
+  const c=await get('/api/report/ai/config');
+  $('aicfg').innerHTML=`<div class="note">Optional — point at an LLM (Anthropic or any OpenAI-compatible endpoint) to author the narrative. The key is stored in the app DB; use a restricted key.</div>
+    <div class="field"><label>Provider</label><select id="ai_provider">${['none','anthropic','openai'].map(o=>`<option ${o===c.provider?'selected':''}>${o}</option>`).join('')}</select></div>
+    <div class="field"><label>Model</label><input id="ai_model" value="${(c.model||'').replace(/"/g,'&quot;')}" placeholder="claude-sonnet-5"></div>
+    <div class="field"><label>API key ${c.configured?'<span class="sec">· set</span>':''}</label><input id="ai_key" type="password" placeholder="${c.configured?'•••• keep':'paste key'}"></div>
+    <div class="field"><label>Base URL <span class="hint">(OpenAI-compatible only)</span></label><input id="ai_base" value="${(c.base_url||'').replace(/"/g,'&quot;')}"></div>
+    <button class="btn" onclick="saveAICfg()">Save LLM config</button> <span id="ai_msg" class="muted"></span>`;
+}
+async function saveAICfg(){
+  const v={provider:$('ai_provider').value,model:$('ai_model').value,base_url:$('ai_base').value};
+  if($('ai_key').value)v.api_key=$('ai_key').value;
+  await fetch('/api/report/ai/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(v)});
+  $('ai_msg').textContent='Saved · Generate to use it.';
+}
+
+/* ---------- sources tab ---------- */
+let SRC={};
+const TABS=['dashboard','ask','forecast','stores','anomalies','inventory','alerts','reports','data','sources','settings'];
+const TITLES={dashboard:'Dashboard',ask:'Ask the data',forecast:'Forecast',stores:'Stores',anomalies:'Anomalies',inventory:'Inventory & Buying',alerts:'Alerts',reports:'Reports',data:'Data lineage',sources:'Sources',settings:'Settings'};
+function showTab(t){
+  document.querySelectorAll('.navitem').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));
+  TABS.forEach(x=>{const el=$('tab-'+x); if(el) el.hidden=(x!==t);});
+  $('pagetitle').textContent=TITLES[t]||'Dashboard';
+  if(t==='sources') loadSources();
+  if(t==='stores') loadStoresPage();
+  if(t==='anomalies') loadAnomaliesPage();
+  if(t==='inventory') loadInventoryPage();
+  if(t==='forecast') loadForecastPage();
+  if(t==='settings') loadSettingsPage();
+  if(t==='ask') loadAskPage();
+  if(t==='data') loadDataPage();
+  if(t==='alerts') loadAlertsPage();
+  if(t==='reports') loadReportsPage();
+}
+async function loadSources(){
+  const d=await get('/api/sources');
+  SRC={}; d.connectors.forEach(c=>SRC[c.id]=c);
+  $('srcgrid').innerHTML=d.connectors.map(srcCard).join('');
+  const f=$('fileinput'); if(f&&!f._wired){f._wired=1;f.onchange=ev=>{[...ev.target.files].forEach(uploadFile);ev.target.value='';};}
+  const rb=$('src_runpipe'); if(rb&&!rb._wired){rb._wired=1;rb.onclick=()=>runPipeline('src_pipemsg');}
+  get('/api/feeds/info').then(pbi=>{$('pbibody').innerHTML=`<div class="kv" style="margin-top:6px">
+    <div class="k">OData feed</div><div class="v" style="font-family:ui-monospace,monospace;font-size:12px">${pbi.odata_url}</div>
+    <div class="k">Entities</div><div class="v">${pbi.entities.join(' · ')}</div>
+    <div class="k">Postgres (read-only)</div><div class="v" style="font-family:ui-monospace,monospace;font-size:12px">${pbi.postgres.host}:${pbi.postgres.port}/${pbi.postgres.database}</div></div>
+    <p class="sub" style="margin-top:8px">${pbi.how_to}</p>
+    <div style="font-size:12px">CSV exports: ${Object.entries(pbi.csv_urls).map(([n,u])=>`<a href="${u}">${n}</a>`).join(' · ')}</div>`;});
+  const promotable=new Set(['staging_sales_line','staging_inventory_snapshot','staging_purchase_order','staging_weather']);
+  const up=$('uploads');
+  if(!d.uploads.length){up.innerHTML='<tr><td class="muted">No uploads yet — use “Choose file…” on the File-upload card</td></tr>';}
+  else up.innerHTML='<tr><th>file</th><th>detected as</th><th>staged table</th><th class="num">rows</th><th>when</th><th></th></tr>'+
+    d.uploads.map(u=>`<tr><td>${u.filename}</td><td>${u.detected}</td><td class="muted">${u.target_table}</td><td class="num">${Number(u.rows).toLocaleString()}</td><td class="muted">${String(u.uploaded).slice(0,16).replace('T',' ')}</td><td>${promotable.has(u.target_table)?`<button class="btn ghost" style="padding:4px 10px" data-promote="${u.target_table}">Promote</button>`:''}</td></tr>`).join('');
+}
+function srcCard(c){
+  const showRows=c.status==='connected'&&c.rows!=null;
+  let act;
+  const canSync=['simphony','sap','toast','square','weather'].includes(c.id);
+  if(c.id==='file') act=`<button class="btn" onclick="document.getElementById('fileinput').click()">Choose file…</button>`;
+  else if(c.status==='available') act=`<button class="btn" data-connect="${c.id}">Connect</button>`;
+  else act=`<button class="btn ghost" data-connect="${c.id}">Configure</button>`;
+  if(canSync&&c.status!=='available') act+=`<button class="btn" data-sync="${c.id}">⟳ Sync now</button>`;
+  return `<div class="src"><div class="top"><span class="icon">${c.icon}</span>
+    <div><div class="nm">${c.name}</div><div class="cat">${c.category}</div></div>
+    <span class="st st-${c.status}">${c.status}</span></div>
+    <div class="desc">${c.desc}</div>
+    ${c.feeds.length?`<div class="feeds">Feeds: ${c.feeds.join(', ')}</div>`:''}
+    ${showRows?`<div class="feeds">${Number(c.rows).toLocaleString()} rows · through ${c.last_sync}</div>`:''}
+    ${c.id==='file'?'<div class="drop" id="drop">or drag a CSV/JSON here</div>':''}
+    <div class="act">${act}</div></div>`;
+}
+function openConnect(id){
+  const c=SRC[id]; if(!c)return;
+  openDrawer(`${c.icon} ${c.name}`);
+  const fields=(c.config_fields||[]).map(f=>{
+    const val=(!f.secret&&c.saved_config&&c.saved_config[f.key])?String(c.saved_config[f.key]).replace(/"/g,'&quot;'):'';
+    return `<div class="field"><label>${f.label} ${f.secret?'<span class="sec">· secret (server vault)</span>':''}</label>
+      <input id="cf_${f.key}" type="${f.secret?'password':(f.type==='number'?'number':'text')}" placeholder="${f.placeholder||''}" value="${val}"></div>`;}).join('');
+  $('dbody').innerHTML=`<div class="note">${c.desc}<br><br><b>Feeds:</b> ${c.feeds.join(', ')||'—'}<br><b>Raw:</b> ${c.raw}</div>
+    ${fields||'<p class="muted">No configuration needed — use “Choose file…” to upload an export.</p>'}
+    ${c.config_fields.length?`<button class="btn" id="saveconn">Save connection</button> <span id="connmsg" class="muted"></span>`:''}`;
+  const b=$('saveconn'); if(b) b.onclick=async()=>{
+    const cfg={}; c.config_fields.forEach(f=>{const el=$('cf_'+f.key); if(el&&el.value)cfg[f.key]=el.value;});
+    $('connmsg').textContent='Saving…';
+    const r=await fetch('/api/sources/connect',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({connector_id:id,name:c.name,config:cfg})});
+    const j=await r.json(); $('connmsg').textContent=j.error?('Error: '+j.error):`Saved — status “${j.status}”. ${j.note||''}`;
+    if(!j.error) loadSources();
+  };
+}
+async function uploadFile(file){
+  const buf=await file.arrayBuffer();
+  const r=await fetch('/api/sources/upload?filename='+encodeURIComponent(file.name),{method:'POST',body:buf});
+  const j=await r.json();
+  openDrawer('⬆️ Upload · '+file.name);
+  $('dbody').innerHTML=j.error?`<div class="note">Error: ${j.error}</div>`:
+    `<div class="note">${j.note}</div><div class="kv">
+      <div class="k">Detected</div><div class="v">${j.detected}</div>
+      <div class="k">Staged table</div><div class="v">${j.target_table}</div>
+      <div class="k">Rows</div><div class="v">${Number(j.rows).toLocaleString()}</div></div>
+      <p class="sub">Columns</p><div class="note" style="font-family:ui-monospace,monospace;font-size:11.5px">${(j.columns||[]).join(', ')}</div>`;
+  loadSources();
+}
+// drag & drop onto the file card
+document.addEventListener('dragover',e=>{const d=e.target.closest('#drop');if(d){e.preventDefault();d.classList.add('over');}});
+document.addEventListener('dragleave',e=>{const d=e.target.closest('#drop');if(d)d.classList.remove('over');});
+document.addEventListener('drop',e=>{const d=e.target.closest('#drop');if(d){e.preventDefault();d.classList.remove('over');[...e.dataTransfer.files].forEach(uploadFile);}});
+
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer();});
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.db
+.pytest_cache/
+deploy/.env
+.env
+# generated synthetic dataset (deterministic — recreate with data_generator/generate_pos_data.py)
+data/
+*.log
+.DS_Store

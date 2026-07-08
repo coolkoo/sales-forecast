@@ -1,0 +1,11 @@
+# Core app — runs the full pipeline (seasonal backend), API/dashboard, and MCP.
+# Chronos-2 (GPU) forecasting adds requirements-forecast.txt on top.
+sqlalchemy>=2.0
+fastapi>=0.110
+uvicorn[standard]>=0.30
+pydantic>=2.0
+pandas>=2.2
+numpy>=1.26
+requests>=2.31
+mcp>=1.2
+psycopg[binary]>=3.1     # Postgres driver (server); SQLite needs nothing extra (local)

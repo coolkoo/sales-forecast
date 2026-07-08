@@ -1,0 +1,187 @@
+"""Natural-language → SQL analytics + a semantic data catalog.
+
+Answers plain-English questions over the warehouse with a safe, read-only query
+builder (intent detection + entity extraction), and ranks tables/columns by
+relevance to a query (a lightweight semantic catalog — the Qdrant-equivalent).
+
+Guardrails: only SELECT, only whitelisted tables, always LIMIT-bounded. An LLM
+provider can be wired in later (settings) to translate free-form questions; the
+built-in intent engine works with zero dependencies.
+"""
+from __future__ import annotations
+
+import re
+
+from app import db
+
+# --- data catalog (table + column descriptions) ---------------------------
+CATALOG = {
+    "sales_line": {"desc": "Daily sales by store, daypart and menu item — units and money.",
+                   "columns": {"brand": "brand code", "store": "store id", "business_date": "date",
+                               "daypart": "lunch/dinner/late", "menu_item_id": "item id",
+                               "menu_item": "item name", "category": "menu category",
+                               "qty": "units sold", "net": "net revenue", "gross": "gross revenue",
+                               "discount": "discount $", "comp": "comped $", "void_qty": "voided units"}},
+    "forecast": {"desc": "Forecast per store/item/daypart/day — p05/p50/p95 and expected net.",
+                 "columns": {"store": "store", "menu_item_id": "item", "daypart": "daypart",
+                             "target_date": "forecast date", "p05": "low", "p50": "expected",
+                             "p95": "high", "expected_units": "expected units", "expected_net": "expected $"}},
+    "anomaly": {"desc": "Detected anomalies — outages, spikes, drops, fraud, inventory variance.",
+                "columns": {"type": "anomaly type", "store": "store", "target": "sku/daypart",
+                            "start_date": "from", "end_date": "to", "score": "severity", "description": "detail"}},
+    "buying_suggestion": {"desc": "Suggested purchase-order reorders by store and SKU.",
+                          "columns": {"store": "store", "sku": "ingredient", "reorder_qty": "order qty",
+                                      "on_hand": "on hand", "order_cost": "cost", "lead_time_days": "lead time"}},
+    "inventory_snapshot": {"desc": "On-hand vs theoretical inventory by store and SKU.",
+                           "columns": {"store": "store", "sku": "ingredient", "on_hand_qty": "on hand",
+                                       "variance_pct": "variance %", "as_of": "date"}},
+    "menu_item": {"desc": "Menu catalog — item, category, price.",
+                  "columns": {"menu_item_id": "id", "name": "name", "category": "category", "price": "price"}},
+    "store": {"desc": "Store directory — brand, region, location.",
+              "columns": {"store": "id", "brand": "brand", "region": "region"}},
+    "prep_plan": {"desc": "Prep + thaw plan for the next service day.",
+                  "columns": {"store": "store", "daypart": "daypart", "menu_item": "item",
+                              "prep_units": "prep qty", "sku": "ingredient", "pull_from_freezer_at": "thaw pull time"}},
+}
+WHITELIST = set(CATALOG)
+
+_STOP = set("the a an of for by in on to and or is are what which show me list top give get how "
+            "many much this that all with per from".split())
+
+
+def _tok(s: str):
+    return [w for w in re.findall(r"[a-z0-9_]+", s.lower()) if w not in _STOP]
+
+
+def search_catalog(q: str, k: int = 5) -> list[dict]:
+    """Rank tables by token overlap between the query and table/column text (semantic-ish)."""
+    qt = set(_tok(q))
+    out = []
+    for t, meta in CATALOG.items():
+        doc = t + " " + meta["desc"] + " " + " ".join(meta["columns"]) + " " + " ".join(meta["columns"].values())
+        dt = set(_tok(doc))
+        overlap = len(qt & dt)
+        score = overlap / (len(qt) + 1e-6)
+        out.append({"table": t, "desc": meta["desc"], "score": round(score, 3), "hits": overlap})
+    return sorted(out, key=lambda r: r["hits"], reverse=True)[:k]
+
+
+# --- entity extraction -----------------------------------------------------
+def _entities(q: str) -> dict:
+    ql = q.lower()
+    e = {}
+    m = re.search(r"kfc-?\s?(\d{3,4})", ql)
+    if m:
+        e["store"] = "KFC-" + m.group(1).zfill(4)
+    for dp in ("breakfast", "lunch", "dinner", "late"):
+        if dp in ql:
+            e["daypart"] = dp
+    d = re.search(r"(20\d{2}-\d{2}-\d{2})", q)
+    if d:
+        e["date"] = d.group(1)
+    for cat in ("chicken", "side", "sandwich", "beverage", "dessert", "entree"):
+        if cat in ql:
+            e["category"] = cat
+    m = re.search(r"top\s+(\d+)", ql)
+    e["n"] = int(m.group(1)) if m else 10
+    return e
+
+
+def _q(sql, p=None):
+    df = db.read_sql(sql, p or {})
+    for c in df.columns:
+        if df[c].dtype.kind in ("M", "m"):
+            df[c] = df[c].astype(str)
+        elif df[c].dtype.kind == "f":          # round floats here (portable — SQL ROUND(float,n) errors on Postgres)
+            df[c] = df[c].round(0)
+    return {"columns": list(df.columns), "rows": df.head(200).to_dict("records"), "sql": sql}
+
+
+# --- intent engine ---------------------------------------------------------
+def answer(question: str) -> dict:
+    q = (question or "").strip()
+    ql = q.lower()
+    e = _entities(q)
+    where, p = [], {}
+    if e.get("store"):
+        where.append("store = :store"); p["store"] = e["store"]
+    if e.get("daypart"):
+        where.append("daypart = :daypart"); p["daypart"] = e["daypart"]
+    wsql = (" WHERE " + " AND ".join(where)) if where else ""
+
+    try:
+        # anomalies / problems / fraud
+        if re.search(r"anomal|outage|fraud|spike|drop|problem|issue|variance", ql):
+            w = " WHERE " + " AND ".join(where) if where else ""
+            r = _q(f"SELECT type, store, target, start_date, end_date, score, description FROM anomaly{w} "
+                   f"ORDER BY score DESC LIMIT {e['n']}", p)
+            return {**r, "intent": "anomalies", "answer": f"Top {e['n']} anomalies" + (f" at {e['store']}" if e.get('store') else " (all stores)")}
+
+        # reorder / buying / purchasing
+        if re.search(r"reorder|buy|buying|purchase|order|restock|po\b", ql):
+            w = (" WHERE " + " AND ".join(where + ["reorder_qty > 0"])) if where else " WHERE reorder_qty > 0"
+            r = _q(f"SELECT store, sku, reorder_qty, uom, on_hand, order_cost, lead_time_days FROM buying_suggestion{w} "
+                   f"ORDER BY order_cost DESC LIMIT {e['n']}", p)
+            return {**r, "intent": "buying", "answer": "Suggested reorders" + (f" for {e['store']}" if e.get('store') else "")}
+
+        # forecast
+        if re.search(r"forecast|predict|expect|next \d+ day|will sell|projection", ql):
+            w = " WHERE " + " AND ".join(where) if where else ""
+            r = _q(f"SELECT store, menu_item_id, daypart, target_date, p50 AS expected_units, expected_net FROM forecast{w} "
+                   f"ORDER BY target_date, store LIMIT 200", p)
+            return {**r, "intent": "forecast", "answer": "Forecast" + (f" for {e['store']}" if e.get('store') else " (all stores)")}
+
+        # thaw / prep
+        if re.search(r"thaw|prep|freezer|defrost|cook", ql):
+            w = " WHERE " + " AND ".join(where + ["frozen"]) if where else " WHERE frozen"
+            r = _q(f"SELECT store, daypart, menu_item, sku, prep_units, pull_from_freezer_at FROM prep_plan{w} "
+                   f"ORDER BY pull_from_freezer_at LIMIT {e['n']}", p)
+            return {**r, "intent": "prep", "answer": "Prep / thaw plan"}
+
+        # top items / best sellers  (sales or forecast)
+        if re.search(r"top|best.?sell|most popular|biggest|highest", ql) and re.search(r"item|menu|product|sell|dish", ql):
+            cat = " AND category = :cat" if e.get("category") else ""
+            if e.get("category"):
+                p["cat"] = e["category"]
+            base = "forecast" if "forecast" in ql or "will" in ql else "sales_line"
+            if base == "sales_line":
+                w = " WHERE 1=1" + (" AND store=:store" if e.get("store") else "") + cat
+                r = _q(f"SELECT menu_item, SUM(qty) units, SUM(net) net FROM sales_line{w} "
+                       f"GROUP BY menu_item ORDER BY net DESC LIMIT {e['n']}", p)
+            else:
+                w = " WHERE 1=1" + (" AND store=:store" if e.get("store") else "")
+                r = _q(f"SELECT menu_item_id, SUM(expected_net) net FROM forecast{w} "
+                       f"GROUP BY menu_item_id ORDER BY net DESC LIMIT {e['n']}", p)
+            return {**r, "intent": "top_items", "answer": f"Top {e['n']} items by revenue"}
+
+        # sales by store / region / daypart / category
+        if re.search(r"sales|revenue|net|units|sold", ql):
+            if "region" in ql:
+                r = _q("SELECT s.region, SUM(sl.net) net FROM sales_line sl JOIN store s ON sl.store=s.store "
+                       "GROUP BY s.region ORDER BY net DESC")
+                return {**r, "intent": "sales_by_region", "answer": "Sales by region"}
+            if "daypart" in ql:
+                r = _q(f"SELECT daypart, SUM(net) net, SUM(qty) units FROM sales_line{wsql} GROUP BY daypart ORDER BY net DESC", p)
+                return {**r, "intent": "sales_by_daypart", "answer": "Sales by daypart"}
+            if "category" in ql:
+                r = _q(f"SELECT category, SUM(net) net FROM sales_line{wsql} GROUP BY category ORDER BY net DESC", p)
+                return {**r, "intent": "sales_by_category", "answer": "Sales by category"}
+            if e.get("date"):
+                p["date"] = e["date"]
+                r = _q(f"SELECT store, SUM(net) net, SUM(qty) units FROM sales_line WHERE business_date=:date "
+                       f"GROUP BY store ORDER BY net DESC", p)
+                return {**r, "intent": "sales_on_date", "answer": f"Sales on {e['date']}"}
+            # default: by store
+            r = _q(f"SELECT store, SUM(net) net, SUM(qty) units FROM sales_line{wsql} GROUP BY store ORDER BY net DESC", p)
+            return {**r, "intent": "sales_by_store", "answer": "Sales by store"}
+
+        # fallback: catalog search to guide the user
+        cats = search_catalog(q)
+        return {"intent": "unknown", "answer": "I couldn't map that to a query. Related data:",
+                "columns": ["table", "what it holds", "relevance"],
+                "rows": [{"table": c["table"], "what it holds": c["desc"], "relevance": c["score"]} for c in cats],
+                "sql": None,
+                "suggestions": ["top items by revenue", "sales by daypart", "anomalies at KFC-0533",
+                                "reorders for KFC-0421", "forecast for KFC-0888", "sales by region"]}
+    except Exception as ex:
+        return {"intent": "error", "answer": f"Query failed: {ex}", "columns": [], "rows": [], "sql": None}

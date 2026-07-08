@@ -1,0 +1,6 @@
+# Real Chronos-2 forecasting backend (GPU). Install ON TOP of requirements.txt
+# on the box that runs the forecast pipeline. Same forecaster traderific uses.
+#   pip install -r requirements.txt -r requirements-forecast.txt
+#   export SF_FORECAST_BACKEND=chronos SF_CHRONOS_DEVICE=cuda:0
+torch>=2.2
+chronos-forecasting>=1.5    # provides `from chronos import Chronos2Pipeline`
