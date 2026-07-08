@@ -7,9 +7,6 @@ GPU, validates anomalies with a council, plans buying and prep, and surfaces eve
 through a 9-page dashboard, natural-language querying, an AI report, and BI feeds — with
 role-based access control and full English/Vietnamese localization.
 
-Reuses two building blocks: **AURIX Engine** patterns (medallion ETL → Postgres serving) and
-**traderific**'s Chronos-2 forecasting engine.
-
 ---
 
 ## Highlights
