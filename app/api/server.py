@@ -17,7 +17,7 @@ api = FastAPI(title="sales-forecast", version="0.1.0")
 DASHBOARD = Path(__file__).resolve().parent.parent / "dashboard" / "index.html"
 
 # --- RBAC: enforce auth + role on every API route (open list bypasses) -------
-_OPEN = {"/", "/api/health", "/api/auth/login", "/api/auth/me", "/api/auth/logout", "/favicon.ico"}
+_OPEN = {"/", "/api/health", "/api/auth/login", "/api/auth/signup", "/api/auth/me", "/api/auth/logout", "/favicon.ico"}
 _OPEN_PREFIX = ("/assets/", "/odata", "/api/export/")   # read-only BI feeds + static assets
 _ADMIN_WRITE = ("/api/settings", "/api/alerts/config", "/api/report/ai/config")
 
@@ -53,11 +53,19 @@ class LoginReq(BaseModel):
 @api.post("/api/auth/login")
 def auth_login(req: LoginReq, response: Response):
     from app import auth
-    tok = auth.login(req.username, req.password)
-    if not tok:
-        return JSONResponse({"error": "invalid username or password"}, status_code=401)
+    status, tok = auth.authenticate(req.username, req.password)
+    if status != "ok":
+        code = 403 if status == "pending" else 401
+        msg = "Account pending admin approval" if status == "pending" else "Invalid username or password"
+        return JSONResponse({"error": msg, "status": status}, status_code=code)
     response.set_cookie("sf_session", tok, httponly=True, samesite="lax", max_age=43200, path="/")
     return {"ok": True, "user": auth.user_from_token(tok)}
+
+
+@api.post("/api/auth/signup")
+def auth_signup(req: LoginReq):
+    from app import auth
+    return auth.signup(req.username, req.password)
 
 
 @api.post("/api/auth/logout")
@@ -428,6 +436,12 @@ def catalog_search(q: str = ""):
 def backtest(horizon: int = 14):
     from app.forecast import backtest as bt
     return bt.run(horizon)
+
+
+@api.get("/api/forecast/hindcast")
+def forecast_hindcast(store: str = Query(...), item: str = Query(...), daypart: str = "", days: int = 14):
+    from app.forecast import backtest as bt
+    return bt.hindcast_series(store, item, daypart, int(days))
 
 
 @api.get("/api/lineage")

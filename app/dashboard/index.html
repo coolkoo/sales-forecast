@@ -181,24 +181,44 @@
   .loginwrap{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;z-index:100}
   .logincard{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:30px 28px;width:340px;
     display:flex;flex-direction:column;gap:12px;box-shadow:0 16px 50px rgba(16,24,40,.16)}
-  .logincard .lgsub{font-size:13px;color:var(--muted);margin:2px 0 8px}
+  .logincard .brandlogo{margin:2px auto 0;display:block}
+  .logincard .lgsub{font-size:13px;color:var(--muted);margin:2px 0 8px;text-align:center}
   .logincard input{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:11px 12px;color:var(--ink);font-size:14px}
   .lgerr{color:var(--critical);font-size:12.5px;min-height:15px}
   .lghint{font-size:11px;color:var(--muted);text-align:center;line-height:1.5}
+  .lgtabs{display:flex;gap:4px;background:var(--panel2);border-radius:10px;padding:3px;margin-bottom:2px}
+  .lgtab{flex:1;background:none;border:none;color:var(--muted);font-size:13px;font-weight:600;padding:8px;border-radius:8px;cursor:pointer}
+  .lgtab.on{background:var(--panel);color:var(--ink);box-shadow:0 1px 2px rgba(16,24,40,.07)}
   .ipt{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font-size:13px}
   .role-badge{background:var(--navactive);color:var(--accent);border-radius:14px;padding:2px 9px;font-size:11px;font-weight:600;text-transform:capitalize}
+  .helpbtn{width:27px;height:27px;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--muted);font-weight:700;cursor:pointer;font-size:13px;line-height:1}
+  .helpbtn:hover{border-color:var(--accent);color:var(--accent)}
+  .help h4{font-size:13px;margin:17px 0 5px;color:var(--ink);letter-spacing:.01em}
+  .help h4:first-child{margin-top:2px}
+  .help p{font-size:13px;color:var(--ink);margin:0 0 8px;line-height:1.55}
+  .help ul{margin:0 0 10px;padding-left:18px}
+  .help li{font-size:12.8px;color:var(--muted);margin:4px 0;line-height:1.5}
+  .help li b,.help p b{color:var(--ink)}
+  .help .k{color:var(--accent);font-weight:600}
+  .help .tip{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:12.5px;color:var(--ink);margin:9px 0;line-height:1.5}
+  .help code{font-family:ui-monospace,monospace;font-size:11.5px;background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px}
 </style>
 </head>
 <body>
 <div class="loginwrap" id="login">
   <div class="logincard">
     <img class="brandlogo" src="/assets/kfc-logo.svg" alt="KFC" style="height:34px">
-    <div class="lgsub">Forecast &amp; Analytics — sign in</div>
+    <div class="lgsub">Forecast &amp; Analytics</div>
+    <div class="lgtabs">
+      <button class="lgtab on" data-m="in" onclick="authMode('in')">Sign in</button>
+      <button class="lgtab" data-m="up" onclick="authMode('up')">Sign up</button>
+    </div>
     <input id="lg_user" placeholder="Username" autocomplete="username">
     <input id="lg_pass" type="password" placeholder="Password" autocomplete="current-password">
+    <input id="lg_pass2" type="password" placeholder="Confirm password" autocomplete="new-password" style="display:none">
     <button class="btn" id="lg_btn" style="width:100%;padding:11px">Sign in</button>
     <div class="lgerr" id="lg_err"></div>
-    <div class="lghint">Demo accounts: <b>admin</b> · <b>manager</b> · <b>analyst</b> · <b>viewer</b><br>(password = username · change in production)</div>
+    <div class="lghint" id="lg_hint">Demo accounts: <b>admin</b> · <b>manager</b> · <b>analyst</b> · <b>viewer</b><br>(password = username · change in production)</div>
   </div>
 </div>
 <nav class="sidebar">
@@ -230,6 +250,7 @@
       <span class="tbmeta" id="runinfo"></span>
       <span class="tblive"><i class="dot"></i> <span id="tb-backend">—</span></span>
       <span class="tbdb" id="tb-db">—</span>
+      <button class="helpbtn" onclick="openHelp()" title="Help — how to read &amp; use this page">?</button>
       <span class="langtoggle"><button class="langbtn" data-lang="en" onclick="setLang('en')">EN</button><button class="langbtn" data-lang="vi" onclick="setLang('vi')">VI</button></span>
       <span class="tbuser">JK <b>admin</b></span>
     </div>
@@ -359,9 +380,10 @@
       <label class="muted" style="font-size:12px">Store <select id="fc_store"></select></label>
       <label class="muted" style="font-size:12px">Item <select id="fc_item"></select></label>
       <label class="muted" style="font-size:12px">Daypart <select id="fc_daypart"></select></label>
+      <label class="muted" style="font-size:12px">View <select id="fc_view"><option value="forecast">Forecast (next 14d)</option><option value="hindcast">Backtest vs actual</option></select></label>
     </div></div>
-    <div class="card"><h3 id="fc_title">Forecast</h3><p class="sub">expected units per day with p05–p95 band</p><div id="fc_chart"></div>
-      <div class="legend"><span><i style="background:var(--accent)"></i>p50 expected</span><span><i style="background:var(--band)"></i>p05–p95 band</span></div></div>
+    <div class="card"><h3 id="fc_title">Forecast</h3><p class="sub" id="fc_sub">expected units per day with p05–p95 band</p><div id="fc_chart"></div>
+      <div class="legend" id="fc_legend"></div></div>
     <div class="card"><h3>Daily detail</h3><div class="scroll"><table id="fc_table"></table></div></div>
   </section>
 
@@ -464,15 +486,34 @@ const esc=s=>String(s).replace(/"/g,'&quot;');
 let STORE=null;
 
 let USER=null;
+let AUTHMODE='in';
+function authMode(m){AUTHMODE=m;
+  document.querySelectorAll('.lgtab').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
+  $('lg_pass2').style.display=(m==='up')?'block':'none';
+  $('lg_btn').textContent=(m==='up')?'Create account':'Sign in';
+  $('lg_hint').innerHTML=(m==='up')?'New accounts register as <b>viewer</b> and need admin approval before first sign-in.':'Demo accounts: <b>admin</b> · <b>manager</b> · <b>analyst</b> · <b>viewer</b><br>(password = username · change in production)';
+  const e=$('lg_err');e.style.color='';e.textContent='';
+}
 function setupLogin(){
   document.getElementById('login').style.display='flex';
-  const go=()=>doLogin();
-  $('lg_btn').onclick=go; $('lg_pass').onkeydown=e=>{if(e.key==='Enter')go();};
+  const go=()=>doAuth();
+  $('lg_btn').onclick=go;
+  [$('lg_pass'),$('lg_pass2')].forEach(el=>el.onkeydown=e=>{if(e.key==='Enter')go();});
   $('lg_user').focus();
 }
-async function doLogin(){
-  const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:$('lg_user').value,password:$('lg_pass').value})});
-  if(r.ok)location.reload(); else $('lg_err').textContent='Invalid username or password.';
+async function doAuth(){
+  const u=$('lg_user').value.trim(),p=$('lg_pass').value,err=$('lg_err');err.style.color='';
+  if(!u||!p){err.textContent='Enter a username and password.';return;}
+  if(AUTHMODE==='up'){
+    if(p!==$('lg_pass2').value){err.textContent='Passwords do not match.';return;}
+    const j=await(await fetch('/api/auth/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})})).json();
+    if(j.error){err.textContent=j.error;}
+    else{authMode('in');err.style.color='var(--good)';err.textContent='✅ Account created — pending admin approval. Sign in once activated.';}
+    return;
+  }
+  const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+  if(r.ok){location.reload();return;}
+  const j=await r.json().catch(()=>({}));err.textContent=j.error||'Invalid username or password.';
 }
 async function doLogout(){await fetch('/api/auth/logout',{method:'POST'});location.reload();}
 function applyRBAC(){
@@ -745,12 +786,15 @@ async function loadForecastPage(){
     $('fc_store').innerHTML=st.map(x=>`<option>${x.store}</option>`).join('');
     $('fc_item').innerHTML=items.map(x=>`<option value="${x.menu_item_id}">${x.name}</option>`).join('');
     $('fc_daypart').innerHTML=['All','lunch','dinner','late'].map(d=>`<option>${d}</option>`).join('');
-    ['fc_store','fc_item','fc_daypart'].forEach(id=>$(id).onchange=renderForecast);
+    ['fc_store','fc_item','fc_daypart','fc_view'].forEach(id=>$(id).onchange=renderForecast);
   }
   renderForecast();
 }
 async function renderForecast(){
+  if($('fc_view').value==='hindcast') return renderHindcast();
   const store=$('fc_store').value,item=$('fc_item').value,dp=$('fc_daypart').value;
+  $('fc_sub').textContent='expected units per day with p05–p95 band';
+  $('fc_legend').innerHTML='<span><i style="background:var(--s1)"></i>p50 expected</span><span><i style="background:var(--band)"></i>p05–p95 band</span>';
   let url=`/api/forecast?store=${store}&item=${encodeURIComponent(item)}&days=21`; if(dp!=='All')url+=`&daypart=${dp}`;
   const rows=await get(url);
   $('fc_title').textContent=`${$('fc_item').selectedOptions[0].text} · ${store}${dp!=='All'?' · '+dp:' · all dayparts'}`;
@@ -775,6 +819,35 @@ function fcChart(data){
   $('fc_chart').innerHTML=`<svg viewBox="0 0 ${W} ${H}">${yt}${xt}<path d="${band}" fill="${C.band}"/><path d="${line}" fill="none" stroke="${C.acc}" stroke-width="2.5"/>${data.map((d,i)=>`<circle cx="${X(i)}" cy="${Y(d.p50)}" r="2.6" fill="${C.acc}"><title>${d.date}: ${d.p50.toFixed(0)} units</title></circle>`).join('')}</svg>`;
 }
 
+async function renderHindcast(){
+  const store=$('fc_store').value,item=$('fc_item').value,dp=$('fc_daypart').value;
+  let url=`/api/forecast/hindcast?store=${store}&item=${encodeURIComponent(item)}&days=14`; if(dp!=='All')url+=`&daypart=${dp}`;
+  $('fc_chart').innerHTML='<p class="muted">Backtesting…</p>';
+  const d=await get(url);
+  $('fc_title').textContent=`${$('fc_item').selectedOptions[0].text} · ${store}${dp!=='All'?' · '+dp:' · all dayparts'} — backtest (predicted vs actual)`;
+  if(d.error||!d.rows||!d.rows.length){$('fc_sub').textContent=d.error||'no data';$('fc_chart').innerHTML='<p class="muted">Not enough history to backtest this series.</p>';$('fc_table').innerHTML='';$('fc_legend').innerHTML='';return;}
+  const inb=d.rows.filter(r=>r.in_band).length;
+  $('fc_sub').textContent=`held out ${d.rows.length} days (${d.cutoff} → ${d.through}) · MAE ${d.mae} units · ${d.coverage_pct}% of actuals landed inside the band`;
+  $('fc_legend').innerHTML='<span><i style="background:var(--s2)"></i>actual</span><span><i style="background:var(--s1)"></i>p50 predicted</span><span><i style="background:var(--band)"></i>p05–p95 band</span>';
+  hcChart(d.rows);
+  $('fc_table').innerHTML='<tr><th>date</th><th class="num">p05</th><th class="num">p50 predicted</th><th class="num">p95</th><th class="num">actual</th><th>in band</th></tr>'+
+    d.rows.map(r=>`<tr><td>${r.date}</td><td class="num">${r.p05}</td><td class="num">${r.p50}</td><td class="num">${r.p95}</td><td class="num"><b>${r.actual}</b></td><td>${r.in_band?'<span style="color:var(--good)">✓</span>':'<span style="color:var(--critical)">✗ miss</span>'}</td></tr>`).join('');
+}
+function hcChart(data){
+  const W=1240,H=240,pad={l:48,r:14,t:12,b:24};
+  const hi=Math.max(...data.map(d=>Math.max(d.p95,d.actual)))*1.08||1;
+  const X=i=>pad.l+(W-pad.l-pad.r)*(i/(data.length-1||1)),Y=v=>pad.t+(H-pad.t-pad.b)*(1-v/hi);
+  const band='M'+data.map((d,i)=>`${X(i)},${Y(d.p95)}`).join(' L ')+' L '+data.map((d,i)=>`${X(data.length-1-i)},${Y(data[data.length-1-i].p05)}`).join(' L ')+' Z';
+  const line=k=>'M'+data.map((d,i)=>`${X(i)},${Y(d[k])}`).join(' L ');
+  const green=cssv('--s2');
+  const yt=[0,hi/2,hi].map(v=>`<line x1="${pad.l}" y1="${Y(v)}" x2="${W-pad.r}" y2="${Y(v)}" stroke="${C.grid}"/><text class="tick" x="8" y="${Y(v)+3}">${v.toFixed(0)}</text>`).join('');
+  const xt=data.map((d,i)=>i%2?'':`<text class="tick" text-anchor="middle" x="${X(i)}" y="${H-8}">${d.date.slice(5)}</text>`).join('');
+  $('fc_chart').innerHTML=`<svg viewBox="0 0 ${W} ${H}">${yt}${xt}<path d="${band}" fill="${C.band}"/>
+    <path d="${line('p50')}" fill="none" stroke="${C.s1}" stroke-width="2" stroke-dasharray="5 4"/>
+    <path d="${line('actual')}" fill="none" stroke="${green}" stroke-width="2.5"/>
+    ${data.map((d,i)=>`<circle cx="${X(i)}" cy="${Y(d.actual)}" r="3.2" fill="${d.in_band?green:C.crit}"><title>${d.date}: actual ${d.actual} · predicted ${d.p50} (band ${d.p05}–${d.p95})${d.in_band?'':' — MISS'}</title></circle>`).join('')}</svg>`;
+}
+
 /* ---------- settings page + pipeline ---------- */
 async function loadSettingsPage(){
   const d=await get('/api/settings');
@@ -793,20 +866,27 @@ async function loadSettingsPage(){
 async function loadUsers(){
   if(!USER||!USER.permissions.includes('admin')){$('userscard').style.display='none';return;}
   const us=await get('/api/auth/users');
-  $('userstable').innerHTML='<tr><th>username</th><th>role</th><th>store</th><th>active</th><th></th></tr>'+
-    us.map(u=>`<tr><td><b>${u.username}</b></td><td><span class="role-badge">${u.role}</span></td><td class="muted">${u.store||'—'}</td><td>${u.active?'✓':'✗'}</td><td>${u.username!=='admin'?`<button class="btn ghost" style="padding:3px 9px" onclick="delUser('${u.username}')">Delete</button>`:''}</td></tr>`).join('');
+  const pending=us.filter(u=>!u.active).length;
+  $('userstable').innerHTML='<tr><th>username</th><th>role</th><th>store</th><th>status</th><th></th></tr>'+
+    us.map(u=>{const st=u.active?'<span style="color:var(--good)">active</span>':'<span style="color:var(--warn)">pending</span>';
+      const act=(!u.active?`<button class="btn" style="padding:3px 9px" onclick="activateUser('${u.username}','${u.role}')">Activate</button> `:'')
+        +(u.username!=='admin'?`<button class="btn ghost" style="padding:3px 9px" onclick="delUser('${u.username}')">Delete</button>`:'');
+      return `<tr><td><b>${u.username}</b></td><td><span class="role-badge">${u.role}</span></td><td class="muted">${u.store||'—'}</td><td>${st}</td><td>${act}</td></tr>`;}).join('');
+  if(pending) $('usermsg').innerHTML=`<span style="color:var(--warn)">⚠ ${pending} account(s) pending approval — Activate to grant access.</span>`;
   $('userform').innerHTML=`<input class="ipt" id="nu_user" placeholder="username">
-    <input class="ipt" id="nu_pass" type="password" placeholder="password">
+    <input class="ipt" id="nu_pass" type="password" placeholder="password (blank = keep)">
     <select class="ipt" id="nu_role">${['viewer','analyst','manager','admin'].map(r=>`<option>${r}</option>`).join('')}</select>
-    <input class="ipt" id="nu_store" placeholder="store (optional)" style="width:130px">
+    <input class="ipt" id="nu_store" placeholder="store (optional)" style="width:120px">
+    <label style="font-size:12px;color:var(--muted);display:inline-flex;gap:5px;align-items:center"><input type="checkbox" id="nu_active" checked> active</label>
     <button class="btn" onclick="saveUser()">Add / update</button>`;
 }
 async function saveUser(){
-  const v={username:$('nu_user').value.trim(),password:$('nu_pass').value,role:$('nu_role').value,store:$('nu_store').value.trim()};
+  const v={username:$('nu_user').value.trim(),password:$('nu_pass').value,role:$('nu_role').value,store:$('nu_store').value.trim(),active:$('nu_active').checked};
   const r=await(await fetch('/api/auth/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(v)})).json();
   $('usermsg').textContent=r.error?('❌ '+r.error):('✅ Saved '+r.username);
   if(!r.error)loadUsers();
 }
+async function activateUser(u,role){await fetch('/api/auth/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,role:role,active:true})});loadUsers();}
 async function delUser(u){await fetch('/api/auth/users/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u})});loadUsers();}
 async function loadLLMConfig(){
   const lc=await get('/api/report/ai/config');
@@ -985,7 +1065,9 @@ async function saveAICfg(){
 let SRC={};
 const TABS=['dashboard','ask','forecast','stores','anomalies','inventory','alerts','reports','data','sources','settings'];
 const TITLES={dashboard:'Dashboard',ask:'Ask the data',forecast:'Forecast',stores:'Stores',anomalies:'Anomalies',inventory:'Inventory & Buying',alerts:'Alerts',reports:'Reports',data:'Data lineage',sources:'Sources',settings:'Settings'};
+let CURTAB='dashboard';
 function showTab(t){
+  CURTAB=t;
   document.querySelectorAll('.navitem').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));
   TABS.forEach(x=>{const el=$('tab-'+x); if(el) el.hidden=(x!==t);});
   $('pagetitle').textContent=TITLES[t]||'Dashboard';
@@ -1000,6 +1082,271 @@ function showTab(t){
   if(t==='alerts') loadAlertsPage();
   if(t==='reports') loadReportsPage();
 }
+// ---- In-app help: page-by-page docs, written for a first-week analyst ----
+const HELP={
+dashboard:{title:'Dashboard — Chain overview',body:`
+<p>The <b>Dashboard</b> is the whole KFC Vietnam chain on one screen: what we expect to sell over the next 14 days, how that compares to the past, and where the money comes from. Start every day here, then click into anything that looks off.</p>
+<h4>How to read it</h4>
+<ul>
+<li><b>KPI tiles (top row).</b> Each tile is one headline number. The small word <i>above</i> is the label; the small text <i>below</i> is the context (e.g. how it compares to history). All money is in Vietnamese đồng — <span class="k">₫</span>. Large amounts are shortened: <code>₫1,2 tỷ</code> = 1.2 billion, <code>₫850 tr</code> = 850 million, <code>₫40 k</code> = 40 thousand.</li>
+<li><b>What the numbers say.</b> A plain-language summary of the KPIs — read this first if a chart is unfamiliar. It changes with the EN/VI language toggle.</li>
+<li><b>Sales trend chart.</b> The solid line is the <b>last 90 days of actual sales</b>. The dashed line that continues off the right edge is the <b>14-day forecast</b>. Where the dashed line begins is "today" — everything left is history, everything right is prediction.</li>
+<li><b>By weekday bars.</b> Average revenue per weekday, indexed so Monday = 1.0. A bar at 1.8 means that weekday earns ~80% more than Monday. This is why weekends look tall.</li>
+<li><b>Daypart donut.</b> Share of forecast revenue split by <b>lunch / dinner / late-night</b> — where in the day the money is made.</li>
+<li><b>Category mix &amp; Top items.</b> Horizontal bars ranked by revenue: longer = bigger seller. Category = menu group (Chicken, Combos, Sides…); Top items = individual products.</li>
+<li><b>Store comparison.</b> Every store ranked by forecast revenue, so you can spot the strongest and weakest locations at a glance.</li>
+</ul>
+<h4>How to use it</h4>
+<ul>
+<li><b>Everything is clickable.</b> Click a store bar, a category, a daypart slice, or a point on the trend line and a panel slides in from the right with the detail behind that number.</li>
+<li>Use the <b>EN / VI</b> toggle (top-right) to switch the whole app between English and Vietnamese.</li>
+<li>Close any slide-in panel with the <b>×</b> or the <b>Esc</b> key.</li>
+</ul>
+<div class="tip"><b>Tip:</b> If a KPI surprises you, don't guess — click it. The drill-in shows which stores or items drove it.</div>
+<h4>Key terms</h4>
+<ul>
+<li><b>Forecast horizon</b> — how far ahead we predict. Here it's <b>14 days</b>.</li>
+<li><b>Net revenue</b> — sales after discounts, before tax.</li>
+<li><b>Daypart</b> — a block of the trading day (lunch, dinner, late-night).</li>
+</ul>`},
+
+ask:{title:'Ask — Question the data in plain English',body:`
+<p>The <b>Ask</b> page lets you get numbers out of the warehouse by typing a question in ordinary language — no SQL, no spreadsheets. It turns your sentence into a database query, runs it, and shows the answer as a table.</p>
+<h4>How to use it</h4>
+<ul>
+<li>Type a question in the box, e.g. <i>"top 5 items by revenue last month"</i> or <i>"total sales by store"</i>, and press <b>Enter</b> (or the ask button).</li>
+<li>Click any <b>example question</b> shown on the page to run it instantly — the fastest way to learn what it understands.</li>
+<li>The result appears as a table below. The generated <b>SQL is shown</b> too, so you (or an analyst reviewing your work) can see exactly how the number was produced.</li>
+</ul>
+<h4>How to read it</h4>
+<ul>
+<li>The <b>table</b> is the answer. Column headers come from your question (e.g. "store", "revenue").</li>
+<li>The <b>SQL block</b> is the exact query used. If a result looks wrong, read the SQL — it tells you what filters and grouping were applied.</li>
+</ul>
+<h4>Good to know</h4>
+<ul>
+<li>Ask is <b>read-only</b> — it can look things up but can never change or delete data.</li>
+<li>It works best on the things it knows: sales, stores, items, dates, dayparts. Ask about those directly.</li>
+<li>If it can't map your question, rephrase using a column name you saw in a previous answer.</li>
+</ul>
+<div class="tip"><b>Tip:</b> Be specific about the time window ("last 7 days", "in June") and the grouping ("by store", "by item") — those two details resolve most vague questions.</div>`},
+
+forecast:{title:'Forecast Explorer — Per-item predictions',body:`
+<p>This page lets you inspect the forecast for <b>one store × one item</b> in detail, and — importantly — check how accurate the model has been. Use it before you trust a number for ordering or staffing.</p>
+<h4>Configure the view (the filter bar)</h4>
+<ul>
+<li><b>Store</b> — which location.</li>
+<li><b>Item</b> — which menu product.</li>
+<li><b>Daypart</b> — "All" combines the whole day, or pick lunch / dinner / late-night.</li>
+<li><b>View</b> — the most important control:
+  <ul>
+  <li><b>Forecast (next 14d)</b> — the <i>future</i> prediction (dates after today). There are <b>no actuals here</b> because those days haven't happened yet.</li>
+  <li><b>Backtest vs actual</b> — hides the last 14 days of <i>real</i> data, predicts them, then overlays what actually happened. This is where you see "did the forecast land?".</li>
+  </ul></li>
+</ul>
+<h4>How to read the chart</h4>
+<ul>
+<li><b>Blue line = p50</b> — the expected, most-likely demand.</li>
+<li><b>Shaded band = p05–p95</b> — the range we're 90% confident the true value falls inside. A <b>wider band = more uncertainty</b>.</li>
+<li>In <b>Backtest</b> mode: the <b>green line = actual</b> (what really sold). A <b>red dot</b> marks a day where actual fell <i>outside</i> the band — a miss worth understanding. The blue dashed line is what the model predicted for those same days.</li>
+</ul>
+<h4>The accuracy tiles</h4>
+<ul>
+<li><b>MAE</b> (Mean Absolute Error) — on average, how many units off the forecast is. Lower is better. "MAE 5" ≈ typically wrong by 5 units.</li>
+<li><b>MAPE</b> — the same error as a <b>percentage</b> of actual. "22%" ≈ typically 22% off.</li>
+<li><b>Band coverage</b> — % of real days that landed inside the p05–p95 band. <b>~90% is healthy</b> (the band is honest). Much lower = band too narrow; much higher = too wide.</li>
+<li><b>Skill vs naive</b> — how much better than a dumb "same as last week" guess. <b>+36%</b> means 36% less error than the naive baseline. Positive = the model adds value.</li>
+<li><b>Bias</b> — the average direction of error. Near <b>0</b> is good; positive = we tend to over-forecast, negative = under-forecast.</li>
+</ul>
+<h4>Daily detail table</h4>
+<p>One row per day with p05 / p50 / p95 units and the expected revenue. In Backtest mode it also shows the actual and a ✓/✗ for whether it landed in-band.</p>
+<div class="tip"><b>Workflow:</b> First switch to <b>Backtest vs actual</b> to see if the model has been reliable for this item. If the green line tracks the band well, trust the <b>Forecast (next 14d)</b> view for planning.</div>`},
+
+stores:{title:'Stores — Location performance',body:`
+<p>The <b>Stores</b> page compares every location in the chain and lets you open any single store for a deeper look. Use it to find your best and worst performers and to run like-for-like growth comparisons.</p>
+<h4>How to read it</h4>
+<ul>
+<li>The <b>overview table</b> lists all stores with their key metrics (revenue, forecast, activity). Columns are sortable — click a header to rank by it.</li>
+<li><b>Same-store-sales (SSS)</b> compares a store to <i>itself a year ago</i>, so you measure real growth without new-store openings inflating the total. A positive % = growing; negative = shrinking versus last year.</li>
+<li>Newer stores show a <b>maturation</b> effect — sales ramp up over their first year as customers discover them, so don't judge a 2-month-old store against a 3-year-old one on raw revenue.</li>
+</ul>
+<h4>How to use it</h4>
+<ul>
+<li>Click a <b>store row</b> to open its detail panel — its own trend, top items, and dayparts.</li>
+<li>Use SSS (not raw revenue) when reporting growth to management — it's the fair comparison.</li>
+</ul>
+<h4>Key terms</h4>
+<ul>
+<li><b>Same-store-sales (SSS)</b> — revenue change for stores open in <i>both</i> periods being compared; the retail standard for organic growth.</li>
+<li><b>Maturation</b> — the gradual sales ramp a new store goes through in its first ~12 months.</li>
+</ul>`},
+
+anomalies:{title:'Anomalies — What looks wrong, and why',body:`
+<p>The <b>Anomalies</b> page surfaces days/stores/items where sales behaved unexpectedly — spikes, drops, suspected fraud, outages, or inventory issues — so you can investigate instead of scanning every store by hand.</p>
+<h4>How to read the list</h4>
+<ul>
+<li>Each row is one detected anomaly: the <b>store &amp; item</b>, the <b>date</b>, the <b>type</b>, and how far it deviated from expected.</li>
+<li><b>Type</b> tells you the shape of the problem:
+  <ul>
+  <li><b>Spike</b> — much higher than expected (promo? event? error?).</li>
+  <li><b>Drop</b> — much lower (weather, closure, stockout?).</li>
+  <li><b>Outage</b> — sales stopped when they shouldn't have.</li>
+  <li><b>Fraud</b> — a pattern consistent with voids/refund abuse.</li>
+  <li><b>Inventory</b> — sales inconsistent with stock on hand.</li>
+  </ul></li>
+<li><b>Council verdict &amp; confidence.</b> Several independent "judges" vote on whether an anomaly is real. The verdict is their consensus and the <b>confidence</b> is how strongly they agreed — treat high-confidence items first.</li>
+</ul>
+<h4>How to use it</h4>
+<ul>
+<li><b>Click any anomaly</b> to open its inspector — a context chart showing the anomalous day against the normal pattern, so you can see exactly how far off it was.</li>
+<li><b>Filter</b> by store, type, or date to focus (e.g. only "fraud" this week).</li>
+<li>Confirmed anomalies can feed the <b>Alerts</b> page so the right person is notified automatically.</li>
+</ul>
+<h4>Key terms</h4>
+<ul>
+<li><b>Residual anomaly</b> — a single day that's far from its expected value given weekday, level, and season.</li>
+<li><b>Structural anomaly</b> — a lasting shift in behaviour (a new level), not just one odd day.</li>
+<li><b>Council</b> — a panel of independent checks that must agree before an anomaly is treated as confident.</li>
+</ul>
+<div class="tip"><b>Tip:</b> Sort by confidence and work top-down. A high-confidence "fraud" or "outage" is worth a same-day call to the store.</div>`},
+
+inventory:{title:'Inventory & Buying — What to order',body:`
+<p>This page turns the demand forecast into <b>purchasing guidance</b>: how much of each ingredient to buy, when to reorder, and what to thaw. It bridges "we'll sell X chicken" to "so order Y kg".</p>
+<h4>How to read it</h4>
+<ul>
+<li><b>Buying summary</b> — projected ingredient needs for the coming period, derived from forecast demand × each item's recipe (its <b>BOM</b>).</li>
+<li><b>Par levels &amp; reorder points</b> — the target stock to keep on hand, and the level at which you should reorder. When on-hand drops to the reorder point, it's time to buy.</li>
+<li><b>Reorder list</b> — items at or below their reorder point right now, with suggested order quantities and estimated cost (in ₫).</li>
+<li><b>Thaw board</b> — for frozen items, how much to pull from the freezer ahead of time so it's ready when demand hits (chicken needs lead time to thaw).</li>
+</ul>
+<h4>How to use it</h4>
+<ul>
+<li>Read the <b>reorder list</b> daily — those are your action items.</li>
+<li>Use the <b>thaw board</b> the day before a high-demand day (weekend, holiday) so you don't run out of ready product.</li>
+<li>Cross-check against <b>Anomalies</b>: an "inventory" anomaly here often means a stockout or a mis-count worth fixing.</li>
+</ul>
+<h4>Key terms</h4>
+<ul>
+<li><b>BOM (Bill of Materials)</b> — the recipe: which raw ingredients and how much go into each menu item.</li>
+<li><b>Par level</b> — the ideal quantity of an ingredient to have in stock.</li>
+<li><b>Reorder point</b> — the stock level that triggers a new purchase order.</li>
+<li><b>Lead time</b> — how long between ordering (or thawing) and the item being usable.</li>
+</ul>`},
+
+alerts:{title:'Alerts — Automated notifications',body:`
+<p>The <b>Alerts</b> page decides <i>who gets told</i> when something important happens (a confirmed anomaly, a low-stock reorder, a forecast breach) and <i>how</i> — email, Microsoft Teams, or Slack. Set it up once and the system notifies people without you watching the screen.</p>
+<h4>How it works</h4>
+<ul>
+<li>A <b>rule</b> connects a trigger (e.g. "high-confidence fraud anomaly") to one or more <b>channels</b> (email address, Teams/Slack webhook).</li>
+<li>When the trigger fires, a message is dispatched to those channels and recorded in the <b>notification log</b>.</li>
+</ul>
+<h4>How to configure it</h4>
+<ul>
+<li><b>Channels</b> — enter the email (SMTP) or webhook URL for Teams/Slack. A webhook is a special URL that service gives you to post messages into a channel.</li>
+<li><b>Rules</b> — choose the trigger type and severity threshold (e.g. only alert on <i>high</i>-confidence anomalies to avoid noise), and pick the channels.</li>
+<li><b>Digest</b> — batch low-priority items into one scheduled summary instead of many pings.</li>
+<li><b>Test</b> — send a test message to confirm the channel is wired correctly <i>before</i> relying on it.</li>
+</ul>
+<h4>How to read the log</h4>
+<ul>
+<li>The <b>notification log</b> shows what was sent, when, to which channel, and whether delivery succeeded — your audit trail if someone says "I never got the alert".</li>
+</ul>
+<div class="tip"><b>Tip:</b> Start strict (high-severity only). It's easier to loosen thresholds later than to win back people who muted a noisy channel.</div>
+<p class="k" style="font-size:12px">Configuring channels and rules requires the <b>operate</b> permission (manager/admin).</p>`},
+
+reports:{title:'Reports — Ready-made & AI-written summaries',body:`
+<p>The <b>Reports</b> page produces shareable business documents — a daily flash, weekly performance, store league table, forecast accuracy, and more — plus an <b>AI-written executive summary</b> that reads the numbers and explains them in prose.</p>
+<h4>How to use it</h4>
+<ul>
+<li>Pick a <b>report template</b> from the list (there are 12, each answering a different management question).</li>
+<li>Set the <b>filters</b> (date range, store) if the template offers them, then generate.</li>
+<li><b>Export</b> to CSV for Excel, or <b>Print</b> to save as PDF for sharing.</li>
+<li><b>AI report</b> — click to have the model write an executive narrative: what happened, why, and what to watch. It only runs if an LLM endpoint is configured in Settings; otherwise you get the data tables without the prose.</li>
+</ul>
+<h4>How to read it</h4>
+<ul>
+<li>Each report opens with the <b>headline numbers</b>, then supporting tables. Read top-down: the summary answers the question, the tables show the evidence.</li>
+<li>The <b>AI narrative</b> is a helper, not gospel — it's generated from the same tables shown below it, so you can verify any claim against the data.</li>
+</ul>
+<h4>PowerBI &amp; feeds</h4>
+<ul>
+<li>The same data is exposed as an <b>OData feed</b> and <b>CSV endpoints</b> so PowerBI (or Excel) can connect directly and refresh on its own — see the feed URLs on this page or the Sources page.</li>
+</ul>
+<div class="tip"><b>Tip:</b> For a recurring management deck, generate the report, print to PDF, and let the AI summary become your first slide's talking points.</div>`},
+
+data:{title:'Data lineage — Where numbers come from',body:`
+<p>The <b>Data lineage</b> page shows how raw data becomes trustworthy analytics, stage by stage. When someone asks "can we trust this number?", this page is the answer — it traces every figure back to its source.</p>
+<h4>The medallion layers</h4>
+<ul>
+<li><b>Bronze</b> — raw, as-received data (POS exports, weather, inventory). Nothing cleaned yet.</li>
+<li><b>Silver</b> — cleaned and conformed: de-duplicated, typed, joined into consistent tables. This is the reliable working layer.</li>
+<li><b>Gold</b> — business-ready aggregates and features the dashboard and forecasts actually use.</li>
+</ul>
+<h4>How to read it</h4>
+<ul>
+<li>Each layer shows its <b>tables, row counts, and freshness</b> (when it last updated). Stale timestamps mean the pipeline hasn't run recently.</li>
+<li>The <b>flow</b> between layers shows dependencies — which gold table is built from which silver tables, and so on.</li>
+</ul>
+<h4>How to use it</h4>
+<ul>
+<li>Use it to <b>diagnose a bad number</b>: if a dashboard figure looks wrong, check whether its bronze source arrived and whether silver/gold refreshed after it.</li>
+<li>Check <b>freshness</b> before trusting a same-day report — if gold hasn't rebuilt since new data landed, you're looking at yesterday.</li>
+</ul>
+<h4>Key terms</h4>
+<ul>
+<li><b>Medallion architecture</b> — the bronze→silver→gold pattern for progressively refining data quality.</li>
+<li><b>Lineage</b> — the traceable path from a final number back to the raw records it came from.</li>
+<li><b>Freshness</b> — how recently a table was last updated.</li>
+</ul>`},
+
+sources:{title:'Sources — Connect & load data',body:`
+<p>The <b>Sources</b> page is where data <i>enters</i> the platform: connect a POS or weather feed, upload a file, and promote it into the warehouse. It also shows how downstream tools (PowerBI) connect out.</p>
+<h4>How to use it</h4>
+<ul>
+<li><b>Connectors</b> — each card is a data source (POS, weather, inventory…). Configure its connection details and <b>sync</b> to pull the latest data.</li>
+<li><b>File upload</b> — use "Choose file…" to load a CSV manually (e.g. a one-off POS export). It lands in a <b>staging</b> area first.</li>
+<li><b>Promote</b> — once a staged upload looks right, promote it so the pipeline picks it up and it flows through bronze→silver→gold.</li>
+<li><b>Run pipeline</b> — reprocess everything after new data lands, so the dashboard and forecasts reflect it.</li>
+</ul>
+<h4>How to read it</h4>
+<ul>
+<li>Each connector shows its <b>status</b> and last sync time — green/recent means healthy.</li>
+<li>The <b>uploads table</b> lists staged files and whether they've been promoted yet.</li>
+<li>The <b>PowerBI panel</b> shows the OData URL, available entities, and read-only Postgres details for connecting BI tools outward.</li>
+</ul>
+<div class="tip"><b>Important:</b> Don't click "Run pipeline" while another pipeline run is already in progress — let the first finish. Two concurrent runs can conflict.</div>
+<p class="k" style="font-size:12px">Connecting sources and running the pipeline requires the <b>operate</b> permission (manager/admin).</p>`},
+
+settings:{title:'Settings — Tune the system (admin)',body:`
+<p><b>Settings</b> controls how the platform behaves: forecast parameters, the data pipeline, the AI/LLM endpoint, and user accounts. Most of this is <b>admin-only</b> — changes here affect everyone.</p>
+<h4>What you can configure</h4>
+<ul>
+<li><b>Forecast settings</b> — the horizon (how many days ahead), model backend (Chronos-2 GPU model vs the lightweight seasonal fallback), and covariates (weather, holidays, promotions) the model considers.</li>
+<li><b>Pipeline</b> — run or schedule the ETL that refreshes the warehouse. Use <b>Run pipeline</b> after loading new data.</li>
+<li><b>LLM endpoint</b> — the URL and key for the AI that writes reports and the "Ask" explanations. Without it, AI features fall back to plain data. Never paste secrets you don't want stored — keys are sensitive.</li>
+<li><b>Users &amp; roles</b> — create accounts, set roles, and activate people who signed up (new sign-ups start as <i>pending viewers</i> until an admin approves them).</li>
+</ul>
+<h4>Roles &amp; permissions</h4>
+<ul>
+<li><b>admin</b> — everything, including settings, LLM/alert config, and user management.</li>
+<li><b>manager</b> — <i>view + operate</i>: run the pipeline, sync sources, configure alerts.</li>
+<li><b>analyst</b> — <i>view</i>: read all analytics and reports.</li>
+<li><b>viewer</b> — <i>view</i> only (the default for new sign-ups).</li>
+</ul>
+<h4>How to use it</h4>
+<ul>
+<li>To <b>approve a new user</b>: find them in Users &amp; roles, set the right role, and mark them active.</li>
+<li>Change parameters one at a time and re-check the <b>Forecast</b> accuracy tiles — so you can tell whether a change helped.</li>
+</ul>
+<div class="tip"><b>Security note:</b> Demo accounts ship with the password equal to the username — change these before real use. On a plain-HTTP LAN, credentials travel unencrypted; put a TLS proxy in front for production.</div>`},
+};
+
+function openHelp(){
+  const h=HELP[CURTAB]||HELP.dashboard;
+  openDrawer('<span style="display:inline-flex;align-items:center;gap:8px"><span class="helpbtn" style="cursor:default">?</span>'+h.title+'</span>');
+  $('dbody').innerHTML='<div class="help">'+h.body+'</div>';
+}
+
 async function loadSources(){
   const d=await get('/api/sources');
   SRC={}; d.connectors.forEach(c=>SRC[c.id]=c);

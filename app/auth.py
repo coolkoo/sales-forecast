@@ -53,19 +53,41 @@ def ensure():
                                              "role": role, "store": None, "active": True, "created": _now()})
 
 
-def login(username: str, password: str) -> str | None:
+def authenticate(username: str, password: str) -> tuple[str, str | None]:
+    """Returns (status, token). status: ok | bad | nouser | pending."""
     ensure()
     r = db.read_sql("SELECT * FROM app_user WHERE username=:u", {"u": username})
     if not len(r):
-        return None
+        return ("nouser", None)
     row = r.iloc[0].to_dict()
-    if not bool(row.get("active")) or _hash(password, str(row["salt"])) != str(row["pw_hash"]):
-        return None
+    if _hash(password, str(row["salt"])) != str(row["pw_hash"]):
+        return ("bad", None)
+    if not bool(row.get("active")):
+        return ("pending", None)
     token = secrets.token_urlsafe(24)
     with db.engine().begin() as cx:
         cx.execute(_sess.insert(), {"token": token, "username": username,
                                     "expires": _now() + datetime.timedelta(hours=12)})
-    return token
+    return ("ok", token)
+
+
+def signup(username: str, password: str) -> dict:
+    """Self-registration → a PENDING viewer account (an admin activates it)."""
+    ensure()
+    username = (username or "").strip()
+    if not username or not password:
+        return {"error": "Username and password are required"}
+    if len(password) < 4:
+        return {"error": "Password must be at least 4 characters"}
+    if not username.replace("_", "").replace("-", "").replace(".", "").isalnum():
+        return {"error": "Username may only contain letters, numbers, _ - ."}
+    if len(db.read_sql("SELECT 1 FROM app_user WHERE username=:u", {"u": username})):
+        return {"error": "That username is already taken"}
+    salt = secrets.token_hex(8)
+    with db.engine().begin() as cx:
+        cx.execute(_users.insert(), {"username": username, "salt": salt, "pw_hash": _hash(password, salt),
+                                     "role": "viewer", "store": None, "active": False, "created": _now()})
+    return {"ok": True, "pending": True}
 
 
 def user_from_token(token: str | None) -> dict | None:

@@ -86,6 +86,45 @@ def run(horizon: int | None = None, min_history: int = 120) -> dict:
     return result
 
 
+def hindcast_series(store: str, item: str, daypart: str = "", days: int = 14,
+                    min_history: int = 90) -> dict:
+    """For one store/item(/daypart), forecast the held-out last `days` and return the
+    per-day predicted band vs the actuals — so the chart can overlay 'where it fell'."""
+    p = {"s": store, "i": item}
+    w = "store=:s AND menu_item_id=:i"
+    if daypart and daypart not in ("All", ""):
+        w += " AND daypart=:d"; p["d"] = daypart
+    s = db.read_sql(f"SELECT business_date, qty FROM sales_line WHERE {w}", p)
+    if s.empty:
+        return {"rows": [], "error": "no data for this series"}
+    s["business_date"] = pd.to_datetime(s["business_date"])
+    s["qty"] = pd.to_numeric(s["qty"], errors="coerce")
+    g = s.groupby("business_date")["qty"].sum()          # sum across dayparts when "All"
+    last = g.index.max()
+    idx = pd.date_range(g.index.min(), last, freq="D")
+    y = g.reindex(idx, fill_value=0).astype(float)
+    cutoff = last - pd.Timedelta(days=days)
+    train = y[y.index <= cutoff]
+    if len(train) < min_history:
+        return {"rows": [], "error": "not enough history to backtest this series"}
+    test_idx = pd.date_range(cutoff + pd.Timedelta(days=1), last, freq="D")
+    fc = SeasonalBackend().forecast(pd.DataFrame({"y": train.values}, index=train.index),
+                                    pd.DataFrame(index=test_idx))
+    actual = y.reindex(test_idx).to_numpy()
+    rows, err = [], []
+    for i, d in enumerate(test_idx):
+        a = float(actual[i]); p50 = float(fc["p50"].iloc[i])
+        lo = float(fc["p05"].iloc[i]); hi = float(fc["p95"].iloc[i])
+        rows.append({"date": d.strftime("%Y-%m-%d"), "p05": round(lo, 1), "p50": round(p50, 1),
+                     "p95": round(hi, 1), "actual": round(a, 1), "in_band": bool(lo <= a <= hi)})
+        err.append(abs(p50 - a))
+    return {"rows": rows, "cutoff": str(cutoff.date()), "through": str(last.date()),
+            "mae": round(float(np.mean(err)), 2) if err else None,
+            "mape_pct": round(float(np.nanmean([e / a for e, r in zip(err, rows) for a in [r["actual"]] if a > 0])) * 100, 1) if err else None,
+            "coverage_pct": round(100 * sum(1 for r in rows if r["in_band"]) / len(rows), 1) if rows else None,
+            "backend": "seasonal"}
+
+
 if __name__ == "__main__":
     import json
     print(json.dumps(run(), indent=2, default=str))
