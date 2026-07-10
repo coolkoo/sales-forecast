@@ -702,5 +702,7 @@ def asset(fname: str):
 @api.get("/")
 def dashboard():
     if DASHBOARD.exists():
-        return FileResponse(str(DASHBOARD))
+        # no-cache: browsers always revalidate the single-file SPA (ETag → 304 when
+        # unchanged), so a redeploy is picked up on the next load, never served stale.
+        return FileResponse(str(DASHBOARD), headers={"Cache-Control": "no-cache, must-revalidate"})
     return JSONResponse({"error": "dashboard not found"}, status_code=404)
