@@ -97,8 +97,92 @@ def _q(sql, p=None):
     return {"columns": list(df.columns), "rows": df.head(200).to_dict("records"), "sql": sql}
 
 
-# --- intent engine ---------------------------------------------------------
+# --- LLM path: translate ANY question into one safe, read-only SELECT ------
+# Sensitive tables are never exposed to the query generator.
+_DENY = {"app_user", "app_session", "llm_config", "source_connection", "alert_config",
+         "source_upload_log"}
+_FORBIDDEN = re.compile(r"\b(insert|update|delete|drop|alter|create|attach|detach|pragma|truncate|"
+                        r"grant|revoke|vacuum|copy|merge|call|exec|execute|into)\b", re.I)
+
+
+def _safe_schema():
+    """Introspect the live DB → (allowed table set, compact schema text) minus sensitive tables."""
+    from sqlalchemy import inspect
+    insp = inspect(db.engine())
+    allowed, lines = set(), []
+    for t in sorted(insp.get_table_names()):
+        if t in _DENY or t.startswith(("pg_", "sql_", "sqlite_")):
+            continue
+        try:
+            cols = [c["name"] for c in insp.get_columns(t)]
+        except Exception:
+            continue
+        allowed.add(t)
+        desc = CATALOG.get(t, {}).get("desc", "")
+        lines.append(f"- {t}({', '.join(cols)})" + (f" — {desc}" if desc else ""))
+    return allowed, "\n".join(lines)
+
+
+def _safe_sql(raw: str, allowed: set) -> str:
+    """Sanitise + validate LLM-generated SQL: single read-only SELECT over allowed tables only."""
+    s = re.sub(r"^```[a-zA-Z]*\s*", "", raw.strip()).replace("```", "").strip()
+    s = s.split(";")[0].strip()                          # first statement only
+    low = s.lower()
+    if not low.startswith("select"):
+        raise ValueError("generated query was not a SELECT")
+    if _FORBIDDEN.search(low):
+        raise ValueError("only read-only SELECT is permitted")
+    refs = set(re.findall(r"\b(?:from|join)\s+([a-zA-Z_][a-zA-Z0-9_.]*)", low))
+    if not refs:
+        raise ValueError("no table referenced")
+    for tbl in refs:
+        base = tbl.split(".")[-1]
+        if base not in allowed or tbl.startswith(("pg_", "information_schema", "sqlite_")):
+            raise ValueError(f"table not permitted: {tbl}")
+    if " limit " not in low:
+        s = s.rstrip("; ") + " LIMIT 500"
+    return s
+
+
+def _llm_answer(q: str, cfg: dict) -> dict:
+    from app import llm
+    allowed, schema = _safe_schema()
+    dialect = db.engine().dialect.name    # 'postgresql' | 'sqlite'
+    system = (
+        "You are a SQL analyst for a KFC Vietnam sales-forecasting & operations warehouse. "
+        f"Translate the user's question into ONE read-only SQL SELECT for a **{dialect}** database. "
+        "Use ONLY the tables and columns in the schema below — you may JOIN, GROUP BY, aggregate, and use "
+        "subqueries to answer data and correlation questions. Do NOT use CTEs, multiple statements, or any "
+        "write/DDL. Always add a LIMIT (<=500). Return ONLY the SQL — no prose, no markdown.\n\n"
+        "SCHEMA:\n" + schema)
+    sql = _safe_sql(llm.complete(q, system=system, max_tokens=500, cfg=cfg), allowed)
+    r = _q(sql)
+    r.update({"intent": "llm", "engine": f"{cfg['provider']}:{cfg['model']}",
+              "answer": f"Answered by {cfg['provider']} · {cfg['model']}"})
+    return r
+
+
 def answer(question: str) -> dict:
+    """LLM-first when configured (answers arbitrary data/correlation questions), with the
+    deterministic rule engine as a always-available fallback."""
+    q = (question or "").strip()
+    from app import llm
+    try:
+        cfg = llm.config()
+    except Exception:
+        cfg = {"configured": False}
+    if q and cfg.get("configured"):
+        try:
+            return _llm_answer(q, cfg)
+        except Exception as ex:
+            fb = _rule_answer(q)
+            fb["llm_note"] = f"LLM path fell back to the rule engine: {str(ex)[:140]}"
+            return fb
+    return _rule_answer(q)
+
+
+# --- deterministic rule engine (fallback / zero-config) --------------------
+def _rule_answer(question: str) -> dict:
     q = (question or "").strip()
     ql = q.lower()
     e = _entities(q)

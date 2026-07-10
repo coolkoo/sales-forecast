@@ -1295,10 +1295,11 @@ async function loadLLMConfig(){
     $('llmmsg').textContent=r.configured?'✅ Saved — LLM configured ('+r.provider+').':'✅ Saved — LLM disabled (built-in analyst will be used).';
   };
   $('testllm').onclick=async()=>{
-    $('llmmsg').textContent='Testing…';
-    const d=await get('/api/report/ai?lang=en');
-    const ok=!/built-in analyst/.test(d.model);
-    $('llmmsg').textContent=(ok?'✅ Connected — ':'ℹ️ ')+'model: '+d.model;
+    $('llmmsg').textContent='Pinging the LLM…';
+    const h=await get('/api/llm/health');
+    $('llmmsg').textContent = h.status==='connected' ? ('✅ Connected — '+h.provider+' · '+h.model+' ('+(h.detail||'')+')')
+      : h.status==='not_configured' ? 'ℹ️ No LLM configured — built-in analyst / rule engine in use.'
+      : ('⚠️ '+(h.detail||'connection error'));
   };
 }
 async function runPipeline(msgId){

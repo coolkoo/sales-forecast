@@ -10,37 +10,12 @@ from __future__ import annotations
 
 import json
 
-from sqlalchemy import Column, MetaData, String, Table, text
+from app import db, llm
 
-from app import db
-
-_MD = MetaData()
-_cfg = Table("llm_config", _MD, Column("key", String, primary_key=True), Column("value", String))
-KEYS = ["provider", "model", "api_key", "base_url"]
-DEFAULTS = {"provider": "none", "model": "claude-sonnet-5", "api_key": "", "base_url": ""}
-
-
-def ensure():
-    _MD.create_all(db.engine(), tables=[_cfg], checkfirst=True)
-
-
-def config() -> dict:
-    ensure()
-    raw = {r["key"]: r["value"] for r in db.read_sql("SELECT key, value FROM llm_config").to_dict("records")}
-    out = {k: raw.get(k, DEFAULTS[k]) for k in KEYS}
-    out["configured"] = bool(out["provider"] != "none" and out["api_key"])
-    return out
-
-
-def set_config(values: dict) -> dict:
-    ensure()
-    with db.engine().begin() as cx:
-        for k, v in (values or {}).items():
-            if k not in KEYS:
-                continue
-            cx.execute(text("DELETE FROM llm_config WHERE key=:k"), {"k": k})
-            cx.execute(_cfg.insert(), {"key": k, "value": str(v)})
-    return config()
+# LLM config now lives in the shared client (app/llm.py); re-exported so the
+# /api/report/ai/config endpoints keep working unchanged.
+config = llm.config
+set_config = llm.set_config
 
 
 def _facts() -> dict:
@@ -105,23 +80,6 @@ def _heuristic(f: dict, lang: str) -> list[dict]:
     ]
 
 
-def _llm(cfg: dict, prompt: str) -> str:
-    import requests
-    if cfg["provider"] == "anthropic":
-        r = requests.post("https://api.anthropic.com/v1/messages",
-                          headers={"x-api-key": cfg["api_key"], "anthropic-version": "2023-06-01",
-                                   "content-type": "application/json"},
-                          json={"model": cfg["model"] or "claude-sonnet-5", "max_tokens": 1600,
-                                "messages": [{"role": "user", "content": prompt}]}, timeout=45)
-        return r.json()["content"][0]["text"]
-    base = (cfg["base_url"] or "https://api.openai.com/v1").rstrip("/")
-    r = requests.post(base + "/chat/completions",
-                      headers={"Authorization": "Bearer " + cfg["api_key"]},
-                      json={"model": cfg["model"] or "gpt-4o-mini", "max_tokens": 1600,
-                            "messages": [{"role": "user", "content": prompt}]}, timeout=45)
-    return r.json()["choices"][0]["message"]["content"]
-
-
 def _parse_sections(txt: str) -> list[dict]:
     sections, cur = [], None
     for line in txt.splitlines():
@@ -148,7 +106,7 @@ def generate(lang: str = "en") -> dict:
                   f"Executive summary, Demand outlook, Risks & anomalies, Inventory & buying, Recommendations. "
                   f"Use VND (₫). Be specific and actionable.\n\nFACTS:\n{json.dumps(f, default=str)}")
         try:
-            sections = _parse_sections(_llm(cfg, prompt))
+            sections = _parse_sections(llm.complete(prompt, max_tokens=1600, cfg=cfg))
             model_used = f"{cfg['provider']}:{cfg['model']}"
         except Exception as e:
             sections = _heuristic(f, lang)

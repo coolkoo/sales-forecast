@@ -321,6 +321,16 @@ def report_ai_set(values: dict):
     return aireport.set_config(values)
 
 
+@api.get("/api/llm/health")
+def llm_health(request: Request):
+    # Live one-token ping so the UI can prove the LLM is really connected (admin only).
+    user = getattr(request.state, "user", None)
+    if not user or "admin" not in user.get("permissions", []):
+        return JSONResponse({"error": "forbidden"}, status_code=403)
+    from app import llm
+    return llm.health()
+
+
 @api.get("/api/report/{name}.csv")
 def report_csv(name: str, date_from: str = "", date_to: str = "", store: str = "", category: str = ""):
     from app import reports
