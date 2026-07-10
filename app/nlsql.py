@@ -286,15 +286,32 @@ def chat(messages: list) -> dict:
     convo = [{"role": m["role"], "content": str(m.get("content", ""))}
              for m in messages if m.get("role") in ("user", "assistant")][-12:]
     first = llm.chat(convo, system=system, max_tokens=900)
-    sql = _extract_sql(first)
-    cols = rows = viz = None
+    sql_cand = _extract_sql(first)
+    cols = rows = viz = sql = None
     reply = first
-    if sql:
+    if sql_cand:
         import json as _json
-        try:
-            safe = _safe_sql(sql, allowed)
-            res = _q(safe)
-            cols, rows, sql = res["columns"], res["rows"], safe
+        fix_convo = convo + [{"role": "assistant", "content": first}]
+        last_err = None
+        for _ in range(2):                       # initial try + one LLM self-correction
+            try:
+                safe = _safe_sql(sql_cand, allowed)
+                res = _q(safe)
+                cols, rows, sql = res["columns"], res["rows"], safe
+                last_err = None
+                break
+            except Exception as ex:
+                last_err = str(ex)[:200]
+                fix = llm.chat(fix_convo + [{"role": "user", "content":
+                    f"That query failed with: {last_err}. Reply with ONLY a corrected single ```sql``` "
+                    "SELECT — verify every column exists in the table you SELECT/JOIN (e.g. is_rain/temp_f "
+                    "live in `weather`, so JOIN weather on business_date)."}], system=system, max_tokens=500)
+                fix_convo += [{"role": "user", "content": f"query failed: {last_err}"},
+                              {"role": "assistant", "content": fix}]
+                sql_cand = _extract_sql(fix)
+                if not sql_cand:
+                    break
+        if cols is not None:
             qtext = next((m.get("content", "") for m in reversed(messages) if m.get("role") == "user"), "")
             viz = _infer_viz(qtext, cols, rows)
             data_msg = (f"Here are the query results ({len(rows)} rows):\n"
@@ -302,10 +319,9 @@ def chat(messages: list) -> dict:
                         + "\n\nNow answer my question conversationally using these results.")
             reply = llm.chat(convo + [{"role": "assistant", "content": first},
                                       {"role": "user", "content": data_msg}], system=system, max_tokens=900)
-        except Exception as ex:
+        else:
             reply = (first.split("```")[0].strip() or "I tried to pull that data, but the query failed.") + \
-                    f"\n\n(query error: {str(ex)[:120]})"
-            sql = cols = rows = viz = None
+                    (f"\n\n(query error: {last_err})" if last_err else "")
     return {"reply": reply, "sql": sql, "columns": cols, "rows": rows or [], "viz": viz}
 
 
