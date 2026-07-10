@@ -56,13 +56,22 @@ permission.
 
 ## Store-node health listener (:8900)
 
-Store-node health agents POST their service status to the listener at
-`http://192.168.50.85:8900/api/monitor/report`. It is an open route (agents are not
-logged-in users) guarded by a node token: agents present `X-Node-Token: <SF_NODE_TOKEN>`
-(or `Authorization: Bearer <SF_NODE_TOKEN>`). Leave `SF_NODE_TOKEN` blank only on a
-trusted, isolated network. The host needs **inbound** :8900 reachable from the store
-subnets for agents to report. Where no agent reports, health is derived server-side and
-correlated with detected anomalies.
+Store-node health agents talk to the platform over three token-guarded open routes
+(agents are not logged-in users; they present `X-Node-Token: <SF_NODE_TOKEN>` or
+`Authorization: Bearer <SF_NODE_TOKEN>`):
+
+| Route | Direction | Purpose |
+|-------|-----------|---------|
+| `POST /api/monitor/report` | agent → server | report service statuses + register presence |
+| `GET /api/monitor/commands?store=…` | agent → server | claim pending remediation commands |
+| `POST /api/monitor/command_result` | agent → server | confirm a command's outcome (done/failed) |
+
+The host needs **inbound** :8900 reachable from the store subnets. When a store has a
+**live agent**, an operator's remediation is **dispatched** to it (the agent runs a
+whitelisted command and confirms); when no agent is present, remediation is **simulated**
+server-side and the service is resolved. Where no agent reports health at all, status is
+derived and correlated with detected anomalies. Leave `SF_NODE_TOKEN` blank only on a
+trusted, isolated network. See `store_agent/` for the reference agent.
 
 ## MCP endpoint on :8901
 

@@ -1591,9 +1591,9 @@ monitor:{title:'Store health — Monitor & remediate store nodes',body:`
 <h4>How to remediate</h4>
 <ul>
 <li>Open a store, find the degraded service, and click a remediation action — e.g. <b>Restart POS service</b>, <b>Fail over to LTE</b>, <b>Reconnect gateway</b>, <b>Restart print spooler</b>, or (for security) <b>Block source IP</b> / <b>Force-logout</b> / <b>Rotate credentials</b>.</li>
-<li>The action resolves the service, is written to the audit log, and stays resolved (it won't be re-flagged for 24h). Healthy services have no actions.</li>
+<li>If the store has a <b>live node agent</b>, the action is <b>dispatched</b> to it — the service shows <i>Remediating…</i> until the agent runs the command and confirms the result. If no agent is present, the action is applied server-side (simulated) and the service is resolved. Either way it's written to the audit log and stays resolved (not re-flagged for 24h). Healthy services have no actions.</li>
 </ul>
-<div class="tip"><b>Note:</b> Remediation requires the <b>operate</b> role (manager/admin); analysts and viewers see status read-only. Real store agents authenticate to the listener with a node token (<code>SF_NODE_TOKEN</code>).</div>`},
+<div class="tip"><b>Note:</b> Remediation requires the <b>operate</b> role (manager/admin); analysts and viewers see status read-only. Store nodes run the reference agent (<code>store_agent/</code>) which authenticates with a node token (<code>SF_NODE_TOKEN</code>) and only ever runs whitelisted commands.</div>`},
 
 inventory:{title:'Inventory & Buying — What to order',body:`
 <p>This page turns the demand forecast into <b>purchasing guidance</b>: how much of each ingredient to buy, when to reorder, and what to thaw. It bridges "we'll sell X chicken" to "so order Y kg".</p>
