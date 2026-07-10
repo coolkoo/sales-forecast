@@ -543,6 +543,28 @@ def monitor_command_result(request: Request, body: dict = Body(...)):
                                  str(body.get("result", "")), actor="agent")
 
 
+@api.on_event("startup")
+def _start_demo_agent():
+    # Demo mode: a server-side virtual agent registers presence and auto-confirms dispatched
+    # remediation commands, so operators see the real Remediating→Resolved flow without a
+    # physical store node. No-op when SF_DEMO_AGENT=0 (real agents deployed).
+    if not CFG.DEMO_AGENT:
+        return
+    import threading
+    import time as _t
+
+    def loop():
+        from app import health
+        while True:
+            try:
+                health.register_virtual_agents()
+                health.process_virtual_commands()
+            except Exception:
+                pass
+            _t.sleep(3)
+    threading.Thread(target=loop, daemon=True, name="demo-agent").start()
+
+
 @api.get("/api/forecast/hindcast")
 def forecast_hindcast(store: str = Query(...), item: str = Query(...), daypart: str = "", days: int = 14):
     from app.forecast import backtest as bt

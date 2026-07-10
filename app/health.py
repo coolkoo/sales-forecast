@@ -22,6 +22,7 @@ import math
 from sqlalchemy import (Column, DateTime, Float, Integer, MetaData, String, Table, text)
 
 from app import db
+from app.config import CFG
 
 
 def _clean(rows: list[dict]) -> list[dict]:
@@ -99,64 +100,73 @@ def _stores() -> list[str]:
     return db.read_sql("SELECT store FROM store ORDER BY store")["store"].tolist()
 
 
-def _recent_anomaly_types() -> dict[str, set]:
-    """{store: {anomaly types seen recently}} — health correlates with these."""
+def _recent_anomaly_types(days: int = 7) -> dict[str, set]:
+    """{store: {anomaly types active in the last `days`}} — health correlates only with
+    *current* issues, so a store whose last outage was months ago reads healthy today."""
     if not db.table_exists("anomaly"):
         return {}
-    df = db.read_sql("SELECT store, type FROM anomaly")
+    rows = db.read_sql("SELECT store, type, end_date FROM anomaly").to_dict("records")
+    dated = [(r["store"], r["type"], _parse_ts(r["end_date"])) for r in rows]
+    ends = [d for _, _, d in dated if d]
+    cutoff = (max(ends) - datetime.timedelta(days=days)) if ends else None
     out: dict[str, set] = {}
-    for r in df.to_dict("records"):
-        out.setdefault(r["store"], set()).add(r["type"])
+    for store, typ, end in dated:
+        if cutoff is None or (end and end >= cutoff):
+            out.setdefault(store, set()).add(typ)
     return out
 
 
-def _target(store: str, anoms: set) -> dict[str, dict]:
-    """Deterministic 'what the agent would report' for one store, correlated w/ anomalies."""
+def _target(store: str, anoms: set, allow_infra: bool = False, allow_intrusion: bool = False) -> dict[str, dict]:
+    """Deterministic 'what the agent would report' for one store. Anomaly-correlated issues
+    (POS/network/payment) always apply; infrastructure warnings and the password-intrusion
+    signal only apply to designated 'problem' stores, so most of the fleet reads healthy."""
     t: dict[str, dict] = {}
 
     # POS — a detected outage means terminals are down
     if "POS_OUTAGE" in anoms:
         t["pos"] = {"status": "down", "metric": 0, "detail": "3 of 6 terminals offline — POS service not responding"}
-    elif _h01(store, "pos") > 0.88:
+    elif allow_infra and _h01(store, "pos") > 0.5:
         t["pos"] = {"status": "warn", "metric": 5, "detail": "Terminal 3 intermittent — 5 of 6 online"}
     else:
         t["pos"] = {"status": "ok", "metric": 6, "detail": "6 of 6 terminals online"}
 
     # Back-office host — disk/CPU
-    disk = round(62 + 36 * _h01(store, "host"), 1)
-    t["host"] = ({"status": "critical", "metric": disk, "detail": f"Disk {disk}% — nearly full"} if disk > 93
-                 else {"status": "warn", "metric": disk, "detail": f"Disk {disk}% — running high"} if disk > 86
-                 else {"status": "ok", "metric": disk, "detail": f"Disk {disk}% · CPU nominal"})
+    disk = round(52 + 40 * _h01(store, "host"), 1)
+    if allow_infra and disk > 86:
+        t["host"] = ({"status": "critical", "metric": disk, "detail": f"Disk {disk}% — nearly full"} if disk > 93
+                     else {"status": "warn", "metric": disk, "detail": f"Disk {disk}% — running high"})
+    else:
+        t["host"] = {"status": "ok", "metric": min(disk, 84.0), "detail": f"Disk {min(disk,84.0)}% · CPU nominal"}
 
     # Network — channel outages point at connectivity
     if "CHANNEL_OUTAGE" in anoms:
         t["network"] = {"status": "warn", "metric": 7.5, "detail": "Uplink packet loss 7.5% — digital orders affected"}
-    elif _h01(store, "net") > 0.9:
+    elif allow_infra and _h01(store, "net") > 0.6:
         t["network"] = {"status": "warn", "metric": 120, "detail": "Latency 120ms — degraded"}
     else:
         t["network"] = {"status": "ok", "metric": 22, "detail": "Uplink up · 22ms latency"}
 
     # Payment gateway
-    if "CHANNEL_OUTAGE" in anoms and _h01(store, "pay") > 0.4:
+    if "CHANNEL_OUTAGE" in anoms and _h01(store, "pay") > 0.55:
         t["payment"] = {"status": "warn", "metric": None, "detail": "Gateway reconnecting — declined-rate elevated"}
     else:
         t["payment"] = {"status": "ok", "metric": None, "detail": "Gateway connected"}
 
     # KDS
     t["kds"] = ({"status": "warn", "metric": None, "detail": "KDS lagging — orders slow to appear"}
-                if _h01(store, "kds") > 0.9 else {"status": "ok", "metric": None, "detail": "KDS responsive"})
+                if allow_infra and _h01(store, "kds") > 0.7 else {"status": "ok", "metric": None, "detail": "KDS responsive"})
 
     # Receipt printer
     t["printer"] = ({"status": "warn", "metric": None, "detail": "Printer offline — spooler stalled"}
-                    if _h01(store, "prn") > 0.82 else {"status": "ok", "metric": None, "detail": "Printer ready"})
+                    if allow_infra and _h01(store, "prn") > 0.55 else {"status": "ok", "metric": None, "detail": "Printer ready"})
 
-    # Backup / DB sync freshness
-    age = round(1 + 40 * _h01(store, "bak"), 1)
-    t["backup"] = ({"status": "warn", "metric": age, "detail": f"Last sync {age}h ago — stale"} if age > 24
-                   else {"status": "ok", "metric": age, "detail": f"Last sync {age}h ago"})
+    # Backup / DB sync freshness (kept comfortably fresh — rarely an issue)
+    age = round(2 + 18 * _h01(store, "bak"), 1)
+    t["backup"] = ({"status": "warn", "metric": age, "detail": f"Last sync {age}h ago — stale"} if allow_infra and age > 22
+                   else {"status": "ok", "metric": min(age, 20.0), "detail": f"Last sync {min(age,20.0)}h ago"})
 
-    # Security / access — password intrusion + fraud correlation
-    if _h01(store, "sec") > 0.82:
+    # Security / access — password intrusion (only the designated store) + fraud correlation
+    if allow_intrusion:
         fails = int(8 + 30 * _h01(store, "sec2"))
         t["security"] = {"status": "critical", "metric": fails,
                          "detail": f"{fails} failed admin logins from a single IP — possible password intrusion"}
@@ -176,11 +186,17 @@ def refresh() -> dict:
         return {"stores": 0}
     anom = _recent_anomaly_types()
     now = _now()
+    # Concentrate issues on a few "problem" stores (prefer those with current anomalies)
+    # so the majority of the fleet reads healthy; one problem store carries the intrusion.
+    problem = sorted(stores, key=lambda s: (len(anom.get(s, set())), _h01(s, "pick")), reverse=True)[:3]
+    intrusion_store = next((s for s in problem if not anom.get(s)), problem[0] if problem else None)
     existing = {(r["store"], r["service"]): r for r in db.read_sql(
         "SELECT store, service, status, detail, since, source, remediated_at FROM store_health").to_dict("records")}
     rows = []
     for st in stores:
-        tgt = _target(st, anom.get(st, set()))
+        is_problem = st in problem
+        tgt = _target(st, anom.get(st, set()) if is_problem else set(),
+                      allow_infra=is_problem, allow_intrusion=(st == intrusion_store))
         for svc, info in tgt.items():
             prev = existing.get((st, svc))
             src = (prev or {}).get("source")
@@ -414,3 +430,71 @@ def command_result(command_id: int, status: str, result: str = "", actor: str = 
                    "kind": "remediation_result", "status": "ok" if ok else "failed",
                    "action": row["action"], "actor": actor, "note": str(result)[:200]})
     return {"ok": True, "command_id": command_id, "status": "done" if ok else "failed"}
+
+
+# --- Demo virtual agent: makes remediation dispatch through the real command channel
+# (Remediating→Resolved) and auto-confirm, without a physical store node. Disabled by
+# SF_DEMO_AGENT=0 once real agents are deployed (a real agent's report always wins). ---
+_MOCK_RESULT = {
+    "restart_pos": "systemctl restart pos.service → active (6/6 terminals online)",
+    "reboot_terminal": "terminal reboot signaled → back online",
+    "restart_agent": "node agent restarted → reporting",
+    "clear_temp": "cleared 1.2 GB temp/cache → disk recovered",
+    "failover_lte": "uplink failed over to LTE → link up",
+    "restart_router": "router restarted → uplink restored",
+    "reconnect_gateway": "payment gateway reconnected → healthy",
+    "restart_kds": "KDS service restarted → responsive",
+    "restart_spooler": "print spooler restarted → printer ready",
+    "run_sync": "DB sync completed → up to date",
+    "block_ip": "iptables DROP applied to source IP → blocked",
+    "force_logout": "all active sessions force-logged-out",
+    "rotate_creds": "credentials rotated → new keys issued",
+}
+_VIRTUAL_HOST = "virtual-agent"
+
+
+def register_virtual_agents():
+    """Present a virtual agent for every store lacking a live *real* agent."""
+    if not CFG.DEMO_AGENT:
+        return
+    ensure()
+    now = _now()
+    real = set()
+    for r in db.read_sql("SELECT store, hostname, last_seen FROM node_agent").to_dict("records"):
+        ls = _parse_ts(r.get("last_seen"))
+        if (str(r.get("hostname")) not in ("", _VIRTUAL_HOST, "None")
+                and ls and (now - ls).total_seconds() <= AGENT_ACTIVE_SEC):
+            real.add(r["store"])
+    with db.engine().begin() as cx:
+        for st in _stores():
+            if st in real:
+                continue
+            # replace any stale/virtual registration for this store (upsert)
+            cx.execute(text("DELETE FROM node_agent WHERE store=:s"), {"s": st})
+            cx.execute(_agent.insert(), {"store": st, "hostname": _VIRTUAL_HOST, "version": "demo",
+                                         "ip": "127.0.0.1", "last_seen": now})
+
+
+def process_virtual_commands(min_age_sec: int = 4) -> int:
+    """Auto-confirm dispatched commands for virtual-agent stores after a short delay,
+    so the UI shows Remediating… then Resolved (real command-channel flow, mocked node)."""
+    if not CFG.DEMO_AGENT or not db.table_exists("node_command"):
+        return 0
+    now = _now()
+    virt = {r["store"] for r in db.read_sql(
+        "SELECT store, hostname FROM node_agent").to_dict("records") if str(r.get("hostname")) == _VIRTUAL_HOST}
+    if not virt:
+        return 0
+    rows = db.read_sql("SELECT id, store, action, requested_at FROM node_command "
+                       "WHERE status IN ('pending','dispatched')").to_dict("records")
+    done = 0
+    for r in rows:
+        if r["store"] not in virt:
+            continue
+        req = _parse_ts(r["requested_at"])
+        if req and (now - req).total_seconds() < min_age_sec:
+            continue    # let it show 'Remediating…' briefly
+        note = _MOCK_RESULT.get(r["action"], f"{r['action']} applied") + " (virtual agent)"
+        command_result(int(r["id"]), "done", note, actor=_VIRTUAL_HOST)
+        done += 1
+    return done

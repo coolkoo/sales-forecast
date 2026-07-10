@@ -72,6 +72,10 @@ class Config:
     MCP_PORT = int(os.environ.get("SF_MCP_PORT", "8901"))
     MCP_TOKEN = os.environ.get("SF_MCP_TOKEN", "")     # bearer token for the MCP endpoint (set on server)
     NODE_TOKEN = os.environ.get("SF_NODE_TOKEN", "")   # token store-node health agents present to /api/monitor/report (empty = accept)
+    # Demo mode: present a server-side virtual agent for stores without a real one, so
+    # remediation dispatches through the real command channel (Remediating→Resolved) and
+    # auto-confirms. Set SF_DEMO_AGENT=0 in production once real store agents are deployed.
+    DEMO_AGENT = _b("SF_DEMO_AGENT", True)
 
     def is_sqlite(self) -> bool:
         return self.DATABASE_URL.startswith("sqlite")

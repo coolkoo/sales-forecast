@@ -948,11 +948,26 @@ function renderStoreHealth(store,d){
 }
 async function doRemediate(store,service,action){
   const r=await(await fetch('/api/monitor/remediate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({store,service,action})})).json();
+  const drawerOpen=()=>$('drawer').classList.contains('open');
   renderStoreHealth(store,await get('/api/monitor/store?store='+encodeURIComponent(store)));
   const note=document.createElement('div');note.className='note';note.style.marginBottom='10px';
-  note.textContent=r.error?('⚠ '+r.error):('✓ '+(r.result||'Remediation applied'));
+  note.textContent=r.error?('⚠ '+r.error):(r.dispatched?('⏳ '+(r.result||'Dispatched to node — awaiting confirmation')):('✓ '+(r.result||'Remediation applied')));
   $('dbody').prepend(note);
   loadMonitorPage();
+  if(r.dispatched){   // poll until the node confirms, so the demo shows Remediating→Resolved
+    for(let i=0;i<8;i++){
+      await new Promise(res=>setTimeout(res,1800));
+      if(!drawerOpen())return;
+      const d=await get('/api/monitor/store?store='+encodeURIComponent(store));
+      const svc=(d.services||[]).find(s=>s.key===service);
+      renderStoreHealth(store,d);
+      if(svc && svc.status!=='remediating'){
+        const n2=document.createElement('div');n2.className='note';n2.style.marginBottom='10px';
+        n2.textContent='✓ Node confirmed — '+svc.detail; $('dbody').prepend(n2);
+        loadMonitorPage(); return;
+      }
+    }
+  }
 }
 
 /* ---------- store detail ---------- */
