@@ -265,6 +265,68 @@ def finalize_sales(df):
     return out
 
 
+def build_channel_fact(sales):
+    """Split canonical sales_line across CHANNELS (dine-in/kiosk/delivery/app) and
+    delivery partners, applying digital-share growth over time and injected
+    channel/partner outages. Returns the store x date x daypart x channel x partner
+    fact plus ground-truth CHANNEL_OUTAGE labels."""
+    df = sales[["brand", "store", "business_date", "daypart", "qty", "net"]].copy()
+    dates = pd.to_datetime(df["business_date"])
+    span = max((C.END_DATE - C.START_DATE).days, 1)
+    tfrac = ((dates - pd.Timestamp(C.START_DATE)).dt.days / span).clip(0, 1).to_numpy()
+
+    weights = {}
+    for c in C.CHANNELS:
+        store_mult = df["store"].map(
+            {s: C.CHANNEL_STORE_LEAN.get(s, {}).get(c, 1.0) for s in df["store"].unique()}).to_numpy()
+        dp_mult = df["daypart"].map(
+            {dp: C.CHANNEL_DAYPART_LEAN.get(dp, {}).get(c, 1.0) for dp in df["daypart"].unique()}).to_numpy()
+        growth = (1 + C.CHANNEL_DIGITAL_GROWTH * tfrac) if c in ("delivery", "app") else 1.0
+        weights[c] = C.CHANNEL_BASE_MIX[c] * store_mult * dp_mult * growth
+    total = np.sum([weights[c] for c in C.CHANNELS], axis=0)
+
+    qty = df["qty"].to_numpy(float)
+    net = df["net"].to_numpy(float)
+    parts = []
+    for c in C.CHANNELS:
+        share = weights[c] / total
+        cq, cn = qty * share, net * share
+        if c == "delivery":
+            for partner, psh in C.DELIVERY_PARTNERS.items():
+                parts.append(pd.DataFrame({
+                    "brand": df["brand"], "store": df["store"], "business_date": df["business_date"],
+                    "daypart": df["daypart"], "channel": c, "delivery_partner": partner,
+                    "qty": cq * psh, "net": cn * psh}))
+        else:
+            partner = C.APP_PARTNER if c == "app" else ""
+            parts.append(pd.DataFrame({
+                "brand": df["brand"], "store": df["store"], "business_date": df["business_date"],
+                "daypart": df["daypart"], "channel": c, "delivery_partner": partner,
+                "qty": cq, "net": cn}))
+    ch = pd.concat(parts, ignore_index=True)
+
+    bd = pd.to_datetime(ch["business_date"])
+    labels = []
+    for i, (store, channel, partner, start, end, mult, name) in enumerate(C.CHANNEL_ANOMALIES):
+        m = ((ch["store"] == store) & (ch["channel"] == channel)
+             & (bd >= pd.Timestamp(start)) & (bd <= pd.Timestamp(end)))
+        if partner:
+            m = m & (ch["delivery_partner"] == partner)
+        ch.loc[m, ["qty", "net"]] *= mult
+        labels.append(dict(anomaly_id=f"C{i+1:03d}", type="CHANNEL_OUTAGE", brand=store.split("-")[0],
+                           store=store, target=(partner or channel), daypart="ALL",
+                           start_date=start, end_date=end, magnitude=mult,
+                           expected_units=None, observed_units=None,
+                           description=f"{name} — {channel} channel at {store}"))
+
+    ch = ch.groupby(["brand", "store", "business_date", "daypart", "channel", "delivery_partner"],
+                    as_index=False).agg(qty=("qty", "sum"), net=("net", "sum"))
+    ch["qty"] = ch["qty"].round().astype(int)
+    ch["net"] = ch["net"].round(2)
+    ch = ch[(ch["qty"] > 0) | (ch["net"] != 0)].reset_index(drop=True)
+    return ch, labels
+
+
 # ---------------------------------------------------------------------------
 # Dimensions
 # ---------------------------------------------------------------------------
@@ -443,6 +505,11 @@ def main():
 
     print("Writing canonical sales_line ...")
     sales.to_csv(DIR_CANON / "sales_line.csv", index=False)
+
+    print("Splitting sales across channels (dine-in/kiosk/delivery/app + partners) ...")
+    channel_fact, channel_labels = build_channel_fact(sales)
+    channel_fact.to_csv(DIR_CANON / "sales_channel.csv", index=False)
+    labels = labels + channel_labels
 
     print("Building inventory + purchase orders (SAP) ...")
     inv, po, labels = build_inventory(sales, labels)

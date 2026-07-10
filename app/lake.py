@@ -15,6 +15,7 @@ from app.config import DATA_DIR
 ASSETS = [
     ("check_detail (raw)", "bronze", "Simphony", "Raw POS check-detail export"),
     ("sales_line", "silver", "conform ← bronze", "Conformed canonical sales"),
+    ("sales_channel", "silver", "conform ← bronze", "Per-channel sales (dine-in/kiosk/delivery/app + partner)"),
     ("menu_item", "silver", "SAP/menu", "Menu catalog"),
     ("recipe_bom", "silver", "SAP", "Recipe bill-of-materials"),
     ("ingredient", "silver", "SAP", "Ingredient master + costs"),

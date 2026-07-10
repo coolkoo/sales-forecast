@@ -119,6 +119,57 @@ DAYPART_SHARE = {"qsr_chicken": {"breakfast": 0.0, "lunch": 0.40, "dinner": 0.46
 
 
 # ---------------------------------------------------------------------------
+# Sales CHANNELS (the problem statement spans dine-in, kiosk, delivery, app) and
+# the third-party DELIVERY PARTNERS. Each finalized sales row is split across
+# channels so the platform can forecast/inspect/attribute at channel grain and
+# catch channel- or partner-specific issues (e.g. a delivery-partner outage).
+# ---------------------------------------------------------------------------
+CHANNELS = ["dine_in", "kiosk", "delivery", "app"]
+
+# Baseline channel mix at the *start* of the window. Digital (delivery+app) grows
+# over time (see CHANNEL_DIGITAL_GROWTH); dine_in gives up the share.
+CHANNEL_BASE_MIX = {"dine_in": 0.44, "kiosk": 0.13, "delivery": 0.28, "app": 0.15}
+
+# Per-store lean: urban/high-volume stores skew digital + kiosk; smaller/newer
+# stores are more dine-in. Multipliers on the base mix (renormalized after).
+CHANNEL_STORE_LEAN = {
+    "KFC-HCM01": {"kiosk": 1.5, "delivery": 1.25, "app": 1.35, "dine_in": 0.75},
+    "KFC-HCM07": {"kiosk": 1.3, "delivery": 1.20, "app": 1.25, "dine_in": 0.85},
+    "KFC-HN01":  {"kiosk": 1.4, "delivery": 1.20, "app": 1.25, "dine_in": 0.80},
+    "KFC-HN02":  {"kiosk": 1.1, "delivery": 1.10, "app": 1.10, "dine_in": 0.95},
+    "KFC-DN01":  {"kiosk": 1.0, "delivery": 1.05, "app": 1.00, "dine_in": 1.05},
+    "KFC-CT01":  {"kiosk": 0.7, "delivery": 0.90, "app": 0.85, "dine_in": 1.20},
+    "KFC-HP01":  {"kiosk": 0.6, "delivery": 0.95, "app": 0.90, "dine_in": 1.20},
+    "KFC-BH01":  {"kiosk": 0.6, "delivery": 1.00, "app": 0.95, "dine_in": 1.15},
+}
+
+# Daypart lean: late-night skews delivery/app; lunch skews dine-in/kiosk (office).
+CHANNEL_DAYPART_LEAN = {
+    "lunch":  {"dine_in": 1.15, "kiosk": 1.20, "delivery": 0.90, "app": 0.90},
+    "dinner": {"dine_in": 1.00, "kiosk": 1.00, "delivery": 1.05, "app": 1.05},
+    "late":   {"dine_in": 0.70, "kiosk": 0.70, "delivery": 1.35, "app": 1.40},
+}
+
+# Digital channels' share multiplier grows linearly from window start -> end.
+# 1.0 at START_DATE, ~1.5 by END_DATE (delivery/app ~50% larger share, mix renormalized).
+CHANNEL_DIGITAL_GROWTH = 0.5
+
+# Third-party delivery aggregators (the `delivery` channel splits across these);
+# the first-party `app` channel is attributed to "KFC App".
+DELIVERY_PARTNERS = {"GrabFood": 0.55, "ShopeeFood": 0.30, "Baemin": 0.15}
+APP_PARTNER = "KFC App"
+
+# Injected channel/partner anomalies (store, channel, partner|"", start, end, mult, name).
+# mult ~0 = an outage (that channel/partner stops); these must surface as channel anomalies
+# whose driver attribution names the channel/partner. Dates sit in the trailing window.
+CHANNEL_ANOMALIES = [
+    ("KFC-HCM01", "delivery", "GrabFood", dt.date(2026, 6, 20), dt.date(2026, 6, 22), 0.05, "GrabFood partner outage"),
+    ("KFC-HN01",  "app",      "KFC App",  dt.date(2026, 6, 25), dt.date(2026, 6, 26), 0.05, "KFC App ordering outage"),
+    ("KFC-HCM07", "delivery", "ShopeeFood", dt.date(2026, 6, 12), dt.date(2026, 6, 14), 0.10, "ShopeeFood partner disruption"),
+]
+
+
+# ---------------------------------------------------------------------------
 # VN holidays + retail driver days. Tết is a multi-week regime (pre-Tết spike →
 # quiet during the holiday as people travel home → rebound).
 # ---------------------------------------------------------------------------

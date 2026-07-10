@@ -95,3 +95,29 @@ def thaw_all(limit: int = 200) -> list[dict]:
     g["pull_from_freezer_at"] = g["pull_from_freezer_at"].astype(str)
     g = g.sort_values("pull_from_freezer_at").head(limit)
     return g.to_dict("records")
+
+
+def channel_mix(days: int = 90) -> dict:
+    """Recent net-revenue share by sales channel + delivery-partner split."""
+    if not db.table_exists("sales_channel"):
+        return {"channels": [], "partners": []}
+    c = db.read_sql("SELECT business_date, channel, delivery_partner, net, qty FROM sales_channel")
+    c["business_date"] = pd.to_datetime(c["business_date"])
+    c["delivery_partner"] = c["delivery_partner"].fillna("").astype(str)
+    lo = c["business_date"].max() - pd.Timedelta(days=days)
+    c = c[c["business_date"] >= lo]
+    order = {"dine_in": 0, "kiosk": 1, "delivery": 2, "app": 3}
+    ch = (c.groupby("channel", as_index=False)
+            .agg(net=("net", "sum"), qty=("qty", "sum")))
+    ch["label"] = ch["channel"].str.replace("_", "-")
+    ch = ch.sort_values("channel", key=lambda s: s.map(order))
+    d = c[c["channel"] == "delivery"]
+    pr = (d.groupby("delivery_partner", as_index=False).agg(net=("net", "sum"))
+          .sort_values("net", ascending=False))
+    return {
+        "channels": [{"channel": r.channel, "label": r.label, "net": round(float(r.net), 2),
+                      "qty": int(r.qty)} for r in ch.itertuples(index=False)],
+        "partners": [{"partner": r.delivery_partner, "net": round(float(r.net), 2)}
+                     for r in pr.itertuples(index=False) if r.delivery_partner],
+        "days": days,
+    }

@@ -142,4 +142,22 @@ def anomaly_detail(anomaly_id: str) -> dict:
                           "variance_pct": round(float(r.variance_pct), 3),
                           "in_window": str(r.as_of) == str(start.date())}
                          for r in inv.itertuples(index=False)]
+
+    elif typ == "CHANNEL_OUTAGE" and db.table_exists("sales_channel"):
+        tgt = a["target"]
+        c = db.read_sql("SELECT business_date, channel, delivery_partner, qty FROM sales_channel "
+                        "WHERE store=:s", {"s": a["store"]})
+        c["business_date"] = pd.to_datetime(c["business_date"])
+        c["delivery_partner"] = c["delivery_partner"].fillna("").astype(str)
+        sub = c[(c["channel"] == tgt) | (c["delivery_partner"] == tgt)]
+        g = sub.groupby("business_date", as_index=False)["qty"].sum().sort_values("business_date")
+        g["expected"] = _expected_units(g.rename(columns={"qty": "units"}))
+        lo, hi = start - pd.Timedelta(days=21), end + pd.Timedelta(days=10)
+        w = g[(g["business_date"] >= lo) & (g["business_date"] <= hi)]
+        out["context_type"] = "actual_vs_expected"
+        out["unit_label"] = f"units — {tgt}"
+        out["series"] = [{"date": d.strftime("%Y-%m-%d"), "actual": round(float(u), 1),
+                          "expected": round(float(e), 1) if pd.notna(e) else None,
+                          "in_window": bool(start <= d <= end)}
+                         for d, u, e in zip(w["business_date"], w["qty"], w["expected"])]
     return out

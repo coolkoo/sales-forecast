@@ -27,8 +27,12 @@ def load_all() -> dict[str, int]:
     # facts / time series (CSV)
     for tbl, fname in [("sales_line", "sales_line.csv"), ("calendar", "calendar.csv"),
                        ("weather", "weather.csv"), ("inventory_snapshot", "inventory_snapshot.csv"),
-                       ("purchase_order", "purchase_order.csv")]:
+                       ("purchase_order", "purchase_order.csv"), ("sales_channel", "sales_channel.csv")]:
+        if not (CANON / fname).exists():
+            continue
         df = pd.read_csv(CANON / fname)
+        if tbl == "sales_channel":
+            df["delivery_partner"] = df["delivery_partner"].fillna("")
         counts[tbl] = db.load_df(df, tbl)
 
     # dimensions (JSON)

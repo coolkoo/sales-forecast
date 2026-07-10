@@ -17,6 +17,9 @@ echo "[entrypoint] launching initial pipeline in background (backend=${SF_FORECA
 ( python -m app.pipeline > /tmp/pipeline.log 2>&1 && echo "[pipeline] done" >> /tmp/pipeline.log \
   || echo "[pipeline] FAILED (see /tmp/pipeline.log)" >> /tmp/pipeline.log ) &
 
+echo "[entrypoint] starting intra-day anomaly scheduler (every ${SF_DETECT_INTERVAL_MIN:-60} min)"
+python -m app.scheduler &
+
 echo "[entrypoint] starting MCP server on :${SF_MCP_PORT:-8901}"
 python -m app.mcp_server &
 

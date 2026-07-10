@@ -58,6 +58,14 @@ class Config:
     PAR_WEEKS = float(os.environ.get("SF_PAR_WEEKS", "1.5"))           # par = this many weeks of demand
     SERVICE_LEVEL_Z = float(os.environ.get("SF_SERVICE_LEVEL_Z", "1.28"))  # safety stock ~90% service
 
+    # --- monitoring cadence ---
+    # Intra-day anomaly-detection interval (success metric #3: detect < 2h). The
+    # scheduler re-scans the latest data every this-many minutes; forecasts still
+    # refresh nightly. 60 min => detection lands well inside the 2-hour target.
+    DETECT_INTERVAL_MIN = int(os.environ.get("SF_DETECT_INTERVAL_MIN", "60"))
+    # Transparent, adjustable model behind the analyst-time-saved metric (#4).
+    MANUAL_MINUTES_PER_INVESTIGATION = int(os.environ.get("SF_MANUAL_MIN_PER_INVESTIGATION", "35"))
+
     # --- service ---
     API_HOST = os.environ.get("SF_API_HOST", "0.0.0.0")
     API_PORT = int(os.environ.get("SF_API_PORT", "8900"))

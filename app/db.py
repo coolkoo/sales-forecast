@@ -43,6 +43,7 @@ anomaly = Table(
     Column("severity", Float), Column("expected", Float), Column("observed", Float),
     Column("score", Float), Column("description", String),
     Column("council_verdict", String), Column("council_confidence", Float), Column("council_note", String),
+    Column("drivers", String), Column("driver_summary", String),   # JSON list + short text (≥3 factors)
 )
 
 buying_suggestion = Table(

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI, Query, Request, Response
+from fastapi import Body, FastAPI, Query, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
@@ -126,8 +126,12 @@ def _rows(sql: str, params: dict | None = None):
 @api.get("/api/health")
 def health():
     ok = db.table_exists("forecast")
+    from app import scheduler
     return {"status": "ok" if ok else "empty", "backend": CFG.FORECAST_BACKEND,
-            "database": "postgres" if not CFG.is_sqlite() else "sqlite"}
+            "database": "postgres" if not CFG.is_sqlite() else "sqlite",
+            "detect_interval_min": CFG.DETECT_INTERVAL_MIN,
+            "time_to_detect_hours": round(CFG.DETECT_INTERVAL_MIN / 60.0, 2),
+            "last_detect_run": scheduler.last_run()}
 
 
 @api.get("/api/summary")
@@ -200,7 +204,25 @@ def anomalies(type: str | None = None):
     if type:
         sql += " WHERE type=:t"; p["t"] = type
     sql += " ORDER BY score DESC"
-    return _rows(sql, p)
+    rows = _rows(sql, p)
+    import json as _json
+    from app import feedback
+    fb = feedback.for_anomalies()
+    for r in rows if isinstance(rows, list) else []:
+        try:
+            r["drivers"] = _json.loads(r["drivers"]) if r.get("drivers") else []
+        except Exception:
+            r["drivers"] = []
+        v = fb.get(r.get("anomaly_id"))
+        r["feedback"] = v["verdict"] if v else None
+    return rows
+
+
+@api.post("/api/anomalies/feedback")
+def anomaly_feedback(body: dict = Body(...)):
+    from app import feedback
+    return feedback.record(str(body.get("anomaly_id", "")), str(body.get("verdict", "")),
+                           str(body.get("note", "")), str(body.get("reviewer", "")))
 
 
 @api.get("/api/buying")
@@ -438,6 +460,24 @@ def backtest(horizon: int = 14):
     return bt.run(horizon)
 
 
+@api.get("/api/backtest/store_daily")
+def backtest_store_daily(horizon: int = 14):
+    from app.forecast import backtest as bt
+    return bt.run_store_daily(horizon)
+
+
+@api.get("/api/metrics/roi")
+def metrics_roi():
+    from app import metrics
+    return metrics.roi()
+
+
+@api.get("/api/metrics/scorecard")
+def metrics_scorecard():
+    from app import metrics
+    return metrics.scorecard()
+
+
 @api.get("/api/forecast/hindcast")
 def forecast_hindcast(store: str = Query(...), item: str = Query(...), daypart: str = "", days: int = 14):
     from app.forecast import backtest as bt
@@ -476,6 +516,12 @@ def buying_summary():
 def thaw_all():
     from app.analytics import pages
     return pages.thaw_all()
+
+
+@api.get("/api/analytics/channel_mix")
+def analytics_channel_mix(days: int = 90):
+    from app.analytics import pages
+    return pages.channel_mix(days)
 
 
 @api.get("/api/analytics/sss")

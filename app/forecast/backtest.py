@@ -86,6 +86,68 @@ def run(horizon: int | None = None, min_history: int = 120) -> dict:
     return result
 
 
+def run_store_daily(horizon: int | None = None, min_history: int = 120) -> dict:
+    """Backtest at the DAILY STORE-LEVEL grain (success metric #1: MAPE ≤ 10%).
+
+    Aggregating across items/dayparts removes most of the per-series noise, so this
+    is the grain the target is defined at. Holds out the last `horizon` days per
+    store, forecasts them from the seasonal backend, and scores MAPE / MAE / band
+    coverage per store and overall.
+    """
+    horizon = horizon or CFG.FORECAST_HORIZON
+    s = db.read_sql("SELECT store, business_date, qty FROM sales_line")
+    s["business_date"] = pd.to_datetime(s["business_date"])
+    s["qty"] = pd.to_numeric(s["qty"], errors="coerce")
+    daily = s.groupby(["store", "business_date"], as_index=False)["qty"].sum()
+    last = daily["business_date"].max()
+    cutoff = last - pd.Timedelta(days=horizon)
+    backend = SeasonalBackend()
+
+    per_store, ape_all, err_all, cov_all = [], [], [], []
+    for store, g in daily.groupby("store"):
+        g = g.sort_values("business_date")
+        idx = pd.date_range(g["business_date"].min(), last, freq="D")
+        y = g.set_index("business_date")["qty"].reindex(idx, fill_value=0).astype(float)
+        train = y[y.index <= cutoff]
+        test_idx = pd.date_range(cutoff + pd.Timedelta(days=1), last, freq="D")
+        if len(train) < min_history or not len(test_idx):
+            continue
+        try:
+            fc = backend.forecast(pd.DataFrame({"y": train.values}, index=train.index),
+                                  pd.DataFrame(index=test_idx))
+        except Exception:
+            continue
+        actual = y.reindex(test_idx).to_numpy()
+        pred = fc["p50"].to_numpy()
+        lo, hi = fc["p05"].to_numpy(), fc["p95"].to_numpy()
+        m = min(len(pred), len(actual))
+        actual, pred, lo, hi = actual[:m], pred[:m], lo[:m], hi[:m]
+        denom = np.where(actual == 0, np.nan, actual)
+        ape = np.abs(pred - actual) / denom
+        cov = ((actual >= lo) & (actual <= hi)).astype(float)
+        mape = float(np.nanmean(ape)) * 100
+        per_store.append({"store": store, "mape_pct": round(mape, 1),
+                          "mae": round(float(np.mean(np.abs(pred - actual))), 1),
+                          "coverage_pct": round(float(np.mean(cov)) * 100, 1)})
+        ape_all += [x for x in ape if np.isfinite(x)]
+        err_all += list(np.abs(pred - actual))
+        cov_all += list(cov)
+
+    overall_mape = round(float(np.mean(ape_all)) * 100, 1) if ape_all else None
+    return {
+        "grain": "store_daily", "horizon_days": horizon,
+        "cutoff": str(cutoff.date()), "through": str(last.date()),
+        "stores_scored": len(per_store),
+        "mape_pct": overall_mape,
+        "mae": round(float(np.mean(err_all)), 1) if err_all else None,
+        "band_coverage_pct": round(float(np.mean(cov_all)) * 100, 1) if cov_all else None,
+        "target_mape_pct": 10.0,
+        "meets_target": (overall_mape is not None and overall_mape <= 10.0),
+        "by_store": sorted(per_store, key=lambda r: r["mape_pct"]),
+        "backend": "seasonal",
+    }
+
+
 def hindcast_series(store: str, item: str, daypart: str = "", days: int = 14,
                     min_history: int = 90) -> dict:
     """For one store/item(/daypart), forecast the held-out last `days` and return the

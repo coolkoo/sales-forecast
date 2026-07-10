@@ -259,7 +259,19 @@
   <section id="tab-dashboard">
   <h2 class="sec">Chain analytics summary</h2>
   <div class="tiles" id="tiles"></div>
+
+  <div class="card">
+    <h3>Success-metric scorecard <span class="hint">· live vs. target</span></h3>
+    <p class="sub">The five expected outcomes, measured against the current data. Time-to-detect &amp; ops-confirmed precision update as the system runs.</p>
+    <div id="scorecard"><p class="muted">Loading…</p></div>
+  </div>
+
   <div class="card"><h3>What the numbers say</h3><ul class="insights" id="insights"></ul></div>
+
+  <div class="grid">
+    <div class="card"><h3>Channel mix <span class="hint">· dine-in / kiosk / delivery / app</span></h3><p class="sub" id="chmix-sub">net revenue share</p><div id="chmix"></div><div class="legend" id="chmix-legend"></div></div>
+    <div class="card"><h3>Delivery partners <span class="hint">· share of delivery</span></h3><p class="sub">GrabFood · ShopeeFood · Baemin</p><div id="chpartner"></div></div>
+  </div>
 
   <div class="card">
     <h3>Chain net revenue — 90-day history + 14-day forecast <span class="hint">· click a point for that day's breakdown</span></h3>
@@ -547,6 +559,7 @@ async function init(){
     ['Reorder cost',short(k.reorder_cost),'suggested POs'],['Footprint',k.stores+' stores',k.menu_items+' items'],
   ].map(([kk,v,sub])=>`<div class="tile"><div class="k">${kk}</div><div class="v">${v}</div><div class="s">${sub}</div></div>`).join('');
   $('insights').innerHTML=sm.insights.map(t=>`<li>${md(t)}</li>`).join('');
+  renderScorecard(); renderChannelMix();
 
   const [trend,dow,daypart,category,topitems,stores]=await Promise.all([
     get('/api/analytics/trend'),get('/api/analytics/dow'),get('/api/analytics/daypart'),
@@ -610,6 +623,27 @@ function drawHBar(id,rows){
     <rect x="${pad.l}" y="${y+4}" width="${Math.max(w,1)}" height="${rh-10}" rx="3" fill="${fill}"><title>${r.label}: ${money(r.value)}${r.dt?' — click':''}</title></rect>
     <text class="lbl" x="${pad.l+w+6}" y="${y+rh/2+3}">${short(r.value)}</text></g>`;}).join('');
   $(id).innerHTML=`<svg viewBox="0 0 ${W} ${H}">${bars}</svg>`;
+}
+async function renderScorecard(){
+  const el=$('scorecard'); if(!el)return;
+  try{const d=await get('/api/metrics/scorecard');
+    el.innerHTML=`<table class="tbl" style="width:100%"><tr><th>Expected outcome</th><th>Target</th><th>Current</th><th>Status</th></tr>`+
+      d.rows.map(r=>{const ok=r.meets;const bg=ok?'rgba(12,163,12,.16)':'var(--panel2)',fg=ok?'var(--good)':'var(--muted)';
+      return `<tr><td>${r.metric}</td><td class="muted">${r.target}</td><td><b>${r.value}</b></td>
+        <td><span class="pill" style="background:${bg};color:${fg}">${ok?'✓ meets':'pending'}</span></td></tr>`;}).join('')+`</table>
+      <p class="sub" style="margin-top:8px">${d.meets_all?'✅ All five expected outcomes are being met on the current data.':'Some metrics populate as ops confirms anomalies and the detector runs.'}</p>`;
+  }catch(e){el.innerHTML='<p class="muted">Scorecard unavailable.</p>';}
+}
+async function renderChannelMix(){
+  if(!$('chmix'))return;
+  try{const d=await get('/api/analytics/channel_mix');
+    const tot=d.channels.reduce((a,c)=>a+c.net,0)||1;
+    if($('chmix-sub'))$('chmix-sub').textContent=`net revenue share · last ${d.days} days`;
+    drawHBar('chmix',d.channels.map((c,i)=>({label:`${c.label} ${Math.round(c.net/tot*100)}%`,value:c.net,color:SC[i%6]})));
+    const pt=d.partners.reduce((a,p)=>a+p.net,0)||1;
+    drawHBar('chpartner',d.partners.map((p,i)=>({label:`${p.partner} ${Math.round(p.net/pt*100)}%`,value:p.net,color:SC[(i+2)%6]})));
+    if($('chmix-legend'))$('chmix-legend').innerHTML='';
+  }catch(e){}
 }
 
 /* ---------- store detail ---------- */
@@ -703,9 +737,24 @@ async function openAnomaly(aid){
     ['Window',`${String(a.start_date).slice(0,10)} → ${String(a.end_date).slice(0,10)}`],
     ['Score',a.score],['Expected',a.expected!=null?a.expected:'—'],['Observed',a.observed!=null?a.observed:'—']];
   const vpill=a.council_verdict==='confirmed'?`<span class="pill" style="background:rgba(224,87,87,.16);color:var(--critical)">CONFIRMED ${Math.round((a.council_confidence||0)*100)}%</span>`:`<span class="pill" style="background:var(--panel2);color:var(--muted)">REVIEW ${Math.round((a.council_confidence||0)*100)}%</span>`;
+  let drivers=[]; try{drivers=typeof a.drivers==='string'?JSON.parse(a.drivers||'[]'):(a.drivers||[]);}catch(e){}
+  const dvhtml=drivers.length?`<div style="margin:0 0 12px"><b style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Contributing factors</b>
+    <div style="margin-top:6px;display:flex;flex-direction:column;gap:5px">`+drivers.slice(0,5).map(f=>{
+      const neg=(f.contribution_pct||0)<0,mag=Math.min(Math.abs(f.contribution_pct||0),1);
+      const col=neg?'var(--critical)':'var(--accent)';
+      return `<div style="display:flex;align-items:center;gap:8px;font-size:12.5px">
+        <span style="min-width:118px;color:var(--muted)">${f.factor.replace(/_/g,' ')}</span>
+        <span style="flex:0 0 90px;height:7px;background:var(--panel2);border-radius:4px;overflow:hidden"><i style="display:block;height:100%;width:${(mag*100).toFixed(0)}%;background:${col}"></i></span>
+        <span>${f.detail}</span></div>`;}).join('')+`</div></div>`:'';
+  const fbpill=a.feedback?`<span class="pill" style="background:var(--panel2);color:var(--muted)">marked ${a.feedback}</span>`:'';
+  const fbhtml=`<div style="margin:14px 0 4px;border-top:1px solid var(--line);padding-top:12px">
+    <b style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Ops feedback</b> <span id="fb-state">${fbpill}</span>
+    <div class="sub" style="margin:4px 0 8px">Was this anomaly actionable? Feeds confirmed-precision (target ≥ 80%).</div>
+    <button class="btn" id="fb-yes" onclick="sendFeedback('${aid}','actionable')">✓ Actionable</button>
+    <button class="btn ghost" id="fb-no" onclick="sendFeedback('${aid}','dismissed')">✗ Dismiss</button></div>`;
   let html=`<div class="note">${a.description}</div>
     <div style="margin:0 0 12px"><b style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Council verdict</b> ${vpill}
-    <div class="sub" style="margin-top:5px">${a.council_note||''}</div></div>
+    <div class="sub" style="margin-top:5px">${a.council_note||''}</div></div>${dvhtml}
     <div class="kv">`+kv.map(([k,v])=>`<div class="k">${k}</div><div class="v">${v}</div>`).join('')+`</div>`;
   if(d.context_type==='actual_vs_expected'){
     html+=`<p class="sub">Daily ${d.unit_label} — actual vs expected (flagged window in red)</p><div id="ac"></div>
@@ -717,8 +766,13 @@ async function openAnomaly(aid){
     html+=`<p class="sub">Weekly counted on-hand vs theoretical (flagged count in red)</p><div id="ac"></div>
       <div class="legend"><span><i style="background:${C.acc}"></i>counted</span><span><i style="background:${C.muted}"></i>theoretical</span><span><i style="background:${C.crit}"></i>flagged</span></div>`;
   }
-  $('dbody').innerHTML=html;
+  $('dbody').innerHTML=html+fbhtml;
   if(d.series&&d.series.length) miniLine('ac',d.series,d.context_type==='comp_pct'?(v=>v.toFixed(1)+'%'):short);
+}
+async function sendFeedback(aid,verdict){
+  await fetch('/api/anomalies/feedback',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({anomaly_id:aid,verdict:verdict,reviewer:(USER&&USER.username)||'ops'})});
+  const st=$('fb-state'); if(st) st.innerHTML=`<span class="pill" style="background:var(--panel2);color:var(--muted)">marked ${verdict}</span>`;
 }
 function miniLine(id,series,yfmt){
   const H=190,W=520,pad={l:44,r:12,t:10,b:22},n=series.length;

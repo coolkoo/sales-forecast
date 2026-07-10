@@ -151,6 +151,77 @@ def _fraud_event(brand, store, run) -> dict:
                 description=f"Elevated comps ~{cp:.0%} of net over {len(run)}d at {store} — possible void/comp abuse")
 
 
+def _channel_expected(y: pd.Series):
+    """DOW-profile x EWMA-level expected + sigma for a single daily channel/partner series."""
+    idx = y.index
+    dow = idx.dayofweek
+    overall = max(y.mean(), 1e-6)
+    prof = np.array([max(y[dow == d].mean() / overall, 1e-3) if (dow == d).any() else 1.0
+                     for d in range(7)])
+    deseas = y.values / prof[dow]
+    level = pd.Series(deseas, index=idx).ewm(span=45, adjust=False).mean().shift(1)
+    expected = level.values * prof[dow]
+    resid = y.values - expected
+    sigma = np.nanstd(resid[~np.isnan(resid)][-120:]) if np.isfinite(resid).any() else overall
+    return expected, max(float(sigma), 1.0)
+
+
+def _channel_event(store, kind, k, run) -> dict:
+    r0, r1 = run[0], run[-1]
+    exp = sum(r.expected for r in run)
+    obs = sum(r.y for r in run)
+    label = "delivery partner" if kind == "delivery_partner" else "channel"
+    return dict(type="CHANNEL_OUTAGE", brand=store.split("-")[0], store=store, target=k, daypart="ALL",
+                start_date=r0.business_date.date(), end_date=r1.business_date.date(),
+                severity=round(obs / max(exp, 1e-6), 2), expected=round(exp, 1), observed=round(obs, 1),
+                score=round(exp - obs, 1),
+                description=f"{k} {label} outage at {store} — {obs:.0f} vs ~{exp:.0f} expected over {len(run)}d")
+
+
+def detect_channel(lookback: int) -> list[dict]:
+    """Channel- and delivery-partner-level outages/drops (e.g. a GrabFood outage or an
+    app-ordering failure) — invisible at store-total grain but material per channel."""
+    if not db.table_exists("sales_channel"):
+        return []
+    c = db.read_sql("SELECT store, business_date, channel, delivery_partner, qty FROM sales_channel")
+    if c.empty:
+        return []
+    c["business_date"] = pd.to_datetime(c["business_date"])
+    c["delivery_partner"] = c["delivery_partner"].fillna("").astype(str)
+    last = c["business_date"].max()
+    win_lo = last - pd.Timedelta(days=lookback - 1)
+    grains = [("channel", c.assign(k=c["channel"])),
+              ("delivery_partner", c[c["delivery_partner"] != ""].assign(k=c["delivery_partner"]))]
+    partner_ev, channel_ev = [], []
+    for kind, cc in grains:
+        daily = cc.groupby(["store", "k", "business_date"], as_index=False)["qty"].sum()
+        for (store, k), g in daily.groupby(["store", "k"]):
+            g = g.sort_values("business_date")
+            idx = pd.date_range(g["business_date"].min(), last, freq="D")
+            y = g.set_index("business_date")["qty"].reindex(idx, fill_value=0).astype(float)
+            if len(y) < 60 or y.mean() < 5:
+                continue
+            expected, _sigma = _channel_expected(y)
+            df = pd.DataFrame({"business_date": idx, "y": y.values, "expected": expected})
+            df = df[df["business_date"] >= win_lo].dropna(subset=["expected"])
+            hit = df[(df["y"] / df["expected"].clip(lower=1e-6) <= 0.4) & (df["expected"] >= 20)]
+            hit = hit.sort_values("business_date")
+            run, prev, events = [], None, (partner_ev if kind == "delivery_partner" else channel_ev)
+            for r in hit.itertuples(index=False):
+                if prev is not None and (r.business_date - prev).days > 1:
+                    events.append(_channel_event(store, kind, k, run)); run = []
+                run.append(r); prev = r.business_date
+            if run:
+                events.append(_channel_event(store, kind, k, run))
+    # de-dupe: a partner outage also shows at its channel grain — keep the specific
+    # partner event and drop the overlapping channel-grain event for the same store.
+    def overlaps(a, b):
+        return (a["store"] == b["store"] and a["start_date"] <= b["end_date"]
+                and b["start_date"] <= a["end_date"])
+    kept_channel = [ce for ce in channel_ev if not any(overlaps(ce, pe) for pe in partner_ev)]
+    return partner_ev + kept_channel
+
+
 def detect_inventory(fb: FeatureBuilder) -> list[dict]:
     inv = db.read_sql("SELECT * FROM inventory_snapshot")
     inv["variance_pct"] = pd.to_numeric(inv["variance_pct"], errors="coerce")
@@ -171,13 +242,15 @@ def run(lookback: int | None = None) -> dict:
     fb = FeatureBuilder()
     panel = _expected_panel(fb, lookback)
     detected = (detect_residual(panel) + detect_fraud(fb, lookback)
-                + detect_inventory(fb))
+                + detect_inventory(fb) + detect_channel(lookback))
     run_date = fb.last_date.date()
     for i, d in enumerate(detected):
         d["anomaly_id"] = f"D{i+1:04d}"
         d["detected_on"] = run_date
     from app import council
     council.review_all(detected)   # multi-judge verdict + confidence + explanation
+    from app.anomaly import drivers
+    drivers.attach(detected)       # ≥3 contributing factors per anomaly (metric #5)
     df = pd.DataFrame(detected)
     if not df.empty:
         df = df.sort_values("score", ascending=False)
@@ -202,9 +275,10 @@ def score(detected: pd.DataFrame, lookback: int) -> dict:
     win_lo = last - pd.Timedelta(days=lookback - 1)
     # inventory/fraud GT can be anywhere; residual GT only detectable in-window
     result = {}
-    for typ in ["POS_OUTAGE", "DEMAND_SPIKE", "DEMAND_DROP", "VOID_COMP_FRAUD", "INVENTORY_VARIANCE"]:
+    for typ in ["POS_OUTAGE", "DEMAND_SPIKE", "DEMAND_DROP", "VOID_COMP_FRAUD",
+                "INVENTORY_VARIANCE", "CHANNEL_OUTAGE"]:
         g = gt[gt["type"] == typ].copy()
-        if typ in ("POS_OUTAGE", "DEMAND_SPIKE", "DEMAND_DROP"):
+        if typ in ("POS_OUTAGE", "DEMAND_SPIKE", "DEMAND_DROP", "CHANNEL_OUTAGE"):
             g = g[g["end_date"] >= win_lo]
         d = detected[detected["type"] == typ] if not detected.empty else detected
         matched_gt, matched_det = set(), set()
