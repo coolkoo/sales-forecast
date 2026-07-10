@@ -832,12 +832,13 @@ async function openDashboardReport(){
   m.classList.add('open');document.body.style.overflow='hidden';
   cv.innerHTML='<div class="rpthead"><div class="rbrand"><h2>Building report…</h2></div></div>';
   try{
-    const [sm,trend,ch,dp,cat,stores,sss,dow,top,sc,anoms,bt]=await Promise.all([
+    const [sm,trend,ch,dp,cat,stores,sss,dow,top,sc,anoms,bt,heat]=await Promise.all([
       get('/api/analytics/summary?lang='+LANG),get('/api/analytics/trend'),get('/api/analytics/channel_mix'),
       get('/api/analytics/daypart'),get('/api/analytics/category'),get('/api/analytics/stores'),
       get('/api/analytics/sss'),get('/api/analytics/dow'),get('/api/analytics/top_items?n=8'),
-      get('/api/metrics/scorecard'),get('/api/anomalies'),get('/api/backtest/store_daily')]);
-    renderReport({sm,trend,ch,dp,cat,stores,sss,dow,top,sc,anoms,bt});
+      get('/api/metrics/scorecard'),get('/api/anomalies'),get('/api/backtest/store_daily'),
+      get('/api/analytics/daypart_heatmap')]);
+    renderReport({sm,trend,ch,dp,cat,stores,sss,dow,top,sc,anoms,bt,heat});
   }catch(e){cv.innerHTML='<div class="rpthead"><div class="rbrand"><h2>Report unavailable</h2></div></div><div class="rptbody"><p class="muted">'+e+'</p></div>';}
 }
 function closeReport(){$('reportmodal').classList.remove('open');document.body.style.overflow='';rtipHide();}
@@ -903,6 +904,7 @@ function renderReport(d){
       <div class="viz"><h4>Store performance league</h4><p class="vsub">forecast revenue + same-store-sales vs prior year</p>
         <table class="rtable"><tr><th>#</th><th>Store</th><th class="num">Revenue</th><th></th><th class="num">SSS</th></tr>${league}</table></div>
       <div class="viz"><h4>Revenue by weekday</h4><p class="vsub">index vs Monday = 1.0</p><div id="rz_dow"></div></div>
+      <div class="viz span2"><h4>Sales heatmap — daypart × day of week</h4><p class="vsub">net revenue intensity · last ${d.heat&&d.heat.days||120} days · darker = higher</p><div id="rz_heat"></div></div>
       <div class="viz"><h4>Forecast &amp; detection scorecard</h4><p class="vsub">five success metrics vs target</p>${scRows}</div>
       <div class="viz"><h4>Live anomalies</h4><p class="vsub">highest-priority, with auto-attributed drivers</p>${anRows}</div>
     </div>
@@ -915,6 +917,27 @@ function renderReport(d){
   $('rz_cat').innerHTML=rptBarsH(catItems.map(x=>({...x,pct:null})));
   $('rz_pt').innerHTML=rptBarsH(pItems);
   $('rz_dow').innerHTML=rptBarsV(dowItems);
+  if(d.heat)$('rz_heat').innerHTML=reportHeat(d.heat);
+}
+
+const DPLABEL_VI={lunch:'trưa',dinner:'tối',late:'khuya',breakfast:'sáng'};
+const DOWLABEL_VI={Mon:'T2',Tue:'T3',Wed:'T4',Thu:'T5',Fri:'T6',Sat:'T7',Sun:'CN'};
+const dpLabel=l=>LANG==='vi'?(DPLABEL_VI[l]||l):l;
+const dowLabel=l=>LANG==='vi'?(DOWLABEL_VI[l]||l):l;
+function reportHeat(d){
+  if(!d||!d.cells||!d.cells.length)return'<p class="muted">No data.</p>';
+  const cell={};let max=0;
+  d.cells.forEach(c=>{cell[c.daypart+'|'+c.dow]=c.net;if(c.net>max)max=c.net;});
+  const xs=d.dows,ys=d.dayparts,cw=Math.max(64,Math.min(140,(760-96)/xs.length)),ch=40,lw=96,th=26;
+  const W=lw+xs.length*cw+6,H=th+ys.length*ch+8;
+  const lerp=(a,b,t)=>Math.round(a+(b-a)*t);
+  const col=t=>{const c1=[255,241,178],c2=[234,88,12];return `rgb(${lerp(c1[0],c2[0],t)},${lerp(c1[1],c2[1],t)},${lerp(c1[2],c2[2],t)})`;};
+  let g=xs.map((x,xi)=>`<text x="${(lw+xi*cw+cw/2).toFixed(1)}" y="${th-9}" text-anchor="middle" style="fill:var(--ink);font-size:11.5px;font-weight:600">${dowLabel(x)}</text>`).join('');
+  ys.forEach((y,yi)=>{g+=`<text x="${lw-10}" y="${(th+yi*ch+ch/2+4).toFixed(1)}" text-anchor="end" style="fill:var(--ink);font-size:12px;text-transform:capitalize">${dpLabel(y)}</text>`;
+    xs.forEach((x,xi)=>{const v=cell[y+'|'+x]||0,t=max?v/max:0;
+      g+=`<rect x="${(lw+xi*cw).toFixed(1)}" y="${th+yi*ch}" width="${(cw-4).toFixed(1)}" height="${ch-4}" rx="3" fill="${col(t)}"><title>${dpLabel(y)} · ${dowLabel(x)}: ${short(v)}</title></rect>
+        <text x="${(lw+xi*cw+(cw-4)/2).toFixed(1)}" y="${(th+yi*ch+ch/2+3).toFixed(1)}" text-anchor="middle" style="fill:#5c2e00;font-size:9.5px">${short(v)}</text>`;});});
+  return `<svg viewBox="0 0 ${W} ${H}" style="max-width:100%">${g}</svg>`;
 }
 
 function sparkline(vals){if(!vals||vals.length<2)return'';const w=64,h=22,mx=Math.max(...vals),mn=Math.min(...vals);

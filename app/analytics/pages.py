@@ -121,3 +121,22 @@ def channel_mix(days: int = 90) -> dict:
                      for r in pr.itertuples(index=False) if r.delivery_partner],
         "days": days,
     }
+
+
+def daypart_heatmap(days: int = 120) -> dict:
+    """Sales grid for a day-of-week × daypart heatmap (shift/daypart planning)."""
+    s = db.read_sql("SELECT business_date, daypart, net FROM sales_line")
+    if s.empty:
+        return {"dows": [], "dayparts": [], "cells": [], "days": days}
+    s["business_date"] = pd.to_datetime(s["business_date"])
+    s["net"] = pd.to_numeric(s["net"], errors="coerce").fillna(0.0)
+    lo = s["business_date"].max() - pd.Timedelta(days=days)
+    s = s[s["business_date"] >= lo]
+    s["dow"] = s["business_date"].dt.dayofweek          # 0 = Mon
+    DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    DP_ORDER = {"lunch": 0, "dinner": 1, "late": 2}
+    g = s.groupby(["dow", "daypart"], as_index=False)["net"].sum()
+    cells = [{"dow": DOW[int(r.dow)], "daypart": r.daypart, "net": round(float(r.net), 2)}
+             for r in g.itertuples(index=False)]
+    dayparts = sorted(s["daypart"].unique().tolist(), key=lambda d: DP_ORDER.get(d, 9))
+    return {"dows": DOW, "dayparts": dayparts, "cells": cells, "days": days}

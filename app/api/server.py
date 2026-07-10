@@ -628,6 +628,12 @@ def analytics_channel_mix(days: int = 90):
     return pages.channel_mix(days)
 
 
+@api.get("/api/analytics/daypart_heatmap")
+def analytics_daypart_heatmap(days: int = 120):
+    from app.analytics import pages
+    return pages.daypart_heatmap(days)
+
+
 @api.get("/api/analytics/sss")
 def sss():
     from app.analytics import pages
