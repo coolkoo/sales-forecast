@@ -189,15 +189,17 @@ def _infer_viz(question: str, columns: list, rows: list) -> dict:
 
     if re.search(r"\bpie\b|donut", ql):
         want = "pie"
-    elif re.search(r"\bline\b|trend|over time|by day|daily|time series|timeline", ql):
+    elif re.search(r"\bline\b|\btrend\b|over time|\bby day\b|\bdaily\b|time series|timeline", ql):
         want = "line"
-    elif re.search(r"\bbar\b|column|chart|graph|plot|visuali", ql):
+    elif re.search(r"\bbar\b|\bcolumn\b|chart|graph|plot|visuali", ql):
         want = "bar"
     else:
         want = None
 
     if date_col and (want == "line" or want is None) and len(rows) >= 3:
         return {"type": "line", "x": date_col, "value": value}
+    if want == "line":          # asked for a line but there's no time axis → fall back to bars
+        want = "bar"
     label = txt[0] if txt else (date_col or columns[0])
     if want == "pie" and 1 < len(rows) <= 8:
         return {"type": "pie", "label": label, "value": value}
