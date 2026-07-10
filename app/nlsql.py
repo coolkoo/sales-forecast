@@ -114,7 +114,7 @@ def _safe_schema():
         if t in _DENY or t.startswith(("pg_", "sql_", "sqlite_")):
             continue
         try:
-            cols = [c["name"] for c in insp.get_columns(t)]
+            cols = [f"{c['name']}:{str(c['type']).split('(')[0].lower()}" for c in insp.get_columns(t)]
         except Exception:
             continue
         allowed.add(t)
@@ -151,9 +151,12 @@ def _llm_answer(q: str, cfg: dict) -> dict:
     system = (
         "You are a SQL analyst for a KFC Vietnam sales-forecasting & operations warehouse. "
         f"Translate the user's question into ONE read-only SQL SELECT for a **{dialect}** database. "
-        "Use ONLY the tables and columns in the schema below — you may JOIN, GROUP BY, aggregate, and use "
-        "subqueries to answer data and correlation questions. Do NOT use CTEs, multiple statements, or any "
-        "write/DDL. Always add a LIMIT (<=500). Return ONLY the SQL — no prose, no markdown.\n\n"
+        "Use ONLY the tables and columns in the schema below (shown as name:type) — you may JOIN, GROUP BY, "
+        "aggregate, and use subqueries to answer data and correlation questions. Do NOT use CTEs, multiple "
+        "statements, or any write/DDL. Always add a LIMIT (<=500). Return ONLY the SQL — no prose, no markdown.\n"
+        "IMPORTANT: date-like columns typed 'varchar' (e.g. sales_line.business_date, weather.business_date) hold "
+        "text 'YYYY-MM-DD'; when comparing them to real date columns (e.g. forecast.target_date) CAST to match, "
+        "and derive day-of-week/weekend from the `calendar` table rather than DB-specific date functions.\n\n"
         "SCHEMA:\n" + schema)
     sql = _safe_sql(llm.complete(q, system=system, max_tokens=500, cfg=cfg), allowed)
     r = _q(sql)
