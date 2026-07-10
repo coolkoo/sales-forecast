@@ -139,7 +139,7 @@ def _safe_sql(raw: str, allowed: set) -> str:
         base = tbl.split(".")[-1]
         if base not in allowed or tbl.startswith(("pg_", "information_schema", "sqlite_")):
             raise ValueError(f"table not permitted: {tbl}")
-    if " limit " not in low:
+    if not re.search(r"\blimit\b", low):     # word-boundary: the model may put LIMIT on its own line
         s = s.rstrip("; ") + " LIMIT 500"
     return s
 
