@@ -210,14 +210,24 @@ def refresh() -> dict:
 
 
 def _parse_ts(v):
-    if v is None or v == "" or str(v) == "None":
+    """Parse a stored timestamp to a *native* datetime, or None. Rejects NaT and
+    out-of-range values (a bad write must not propagate through refresh)."""
+    if v is None or v == "" or str(v) in ("None", "NaT", "nan"):
         return None
+    dt = None
     if isinstance(v, datetime.datetime):
-        return v
+        dt = v
+    else:
+        try:
+            dt = datetime.datetime.fromisoformat(str(v).replace("Z", "").split(".")[0])
+        except Exception:
+            return None
+    # normalize pandas Timestamp → native, drop tzinfo, and reject absurd years
     try:
-        return datetime.datetime.fromisoformat(str(v).replace("Z", "").split(".")[0])
+        dt = datetime.datetime(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)
     except Exception:
         return None
+    return dt if 1970 <= dt.year <= 9999 else None
 
 
 def _agent_active(store: str) -> bool:
