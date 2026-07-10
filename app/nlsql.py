@@ -268,13 +268,21 @@ def chat(messages: list) -> dict:
     dialect = db.engine().dialect.name
     system = (
         "You are a friendly, sharp senior data analyst for KFC Vietnam's sales-forecasting & operations "
-        "platform. Have a natural conversation and give clear, specific, numeric insight.\n"
-        f"You can query the warehouse: when you need data, output ONE fenced ```sql``` block — a single "
-        f"read-only SELECT for a {dialect} database, using ONLY these tables/columns, no CTEs, always a "
-        "LIMIT (<=500). You will then receive the rows and must explain the answer conversationally — "
-        "interpret the numbers, call out correlations/trends, and suggest actions; do NOT just restate the "
-        "table. If a question doesn't need data (a clarification or follow-up), just answer. Money is "
-        "Vietnamese đồng (₫). Keep replies concise.\n\nSCHEMA:\n" + schema)
+        "platform, and you have LIVE read access to its data warehouse.\n"
+        "HOW YOU ANSWER: For ANY question about the data — trends, comparisons, correlations, rankings, or "
+        "requests to 'show', 'draw', 'chart', 'graph', 'plot', 'visualize', 'heatmap' — you MUST answer by "
+        f"writing exactly ONE fenced ```sql``` block: a single read-only SELECT for a {dialect} database, using "
+        "ONLY the tables/columns below, no CTEs, always a LIMIT (<=500). You will then receive the rows and "
+        "explain them.\n"
+        "CRITICAL: the application AUTOMATICALLY renders a chart (bar / line / pie / heatmap) from your query "
+        "results — so NEVER say you cannot draw charts or make visuals. Instead, shape the query for the chart: "
+        "pie/bar = one label column + one numeric column; line = a date column + a numeric column; heatmap = "
+        "two category columns + a numeric column. If the user names a chart type, return columns that fit it; "
+        "if they ask about a correlation (e.g. weather vs sales), GROUP BY the driver (e.g. is_rain, or "
+        "temperature buckets) and aggregate the metric.\n"
+        "Only skip the SQL for a greeting or a genuine clarification. When you get results, interpret them — "
+        "call out the correlation/trend with specific numbers and suggest an action; don't just restate the "
+        "table. Money is Vietnamese đồng (₫). Keep replies concise.\n\nSCHEMA:\n" + schema)
     convo = [{"role": m["role"], "content": str(m.get("content", ""))}
              for m in messages if m.get("role") in ("user", "assistant")][-12:]
     first = llm.chat(convo, system=system, max_tokens=900)
