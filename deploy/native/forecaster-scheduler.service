@@ -1,0 +1,16 @@
+[Unit]
+Description=Secure Insights forecaster — intra-day anomaly scheduler
+After=forecaster.service
+Wants=forecaster.service
+
+[Service]
+Type=simple
+WorkingDirectory=/root/sales-forecast
+Environment=SF_FORECAST_BACKEND=seasonal
+Environment=SF_DEMO_AGENT=1
+ExecStart=/root/sales-forecast/.venv/bin/python -m app.scheduler
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

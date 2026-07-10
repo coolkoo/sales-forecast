@@ -51,7 +51,7 @@ flowchart TB
 | Page | What you do there |
 |------|-------------------|
 | **Dashboard** | Chain‑wide snapshot: KPI tiles, 90‑day trend + 14‑day forecast, weekday/daypart/category/store breakdowns. Everything is click‑to‑drill. |
-| **Ask** | Type a question in plain language; it becomes SQL, runs read‑only, and returns a table (the SQL is shown). |
+| **Ask** | Type a question in plain language → read‑only SQL → **table + a chart** (say "in a pie chart" / "as a bar chart" / "over time" to pick the type). A deterministic rule engine answers common questions with zero config; **configure an LLM** (Settings → LLM endpoint) and it answers *any* data or correlation question across the whole warehouse. The SQL is always shown. |
 | **Forecast** | Pick store × item × daypart. **View** toggles *Forecast (next 14d)* vs *Backtest vs actual* (overlays the real line + accuracy tiles: MAE, MAPE, band coverage, skill‑vs‑naive, bias). |
 | **Stores** | Compare all locations; same‑store‑sales (YoY, like‑for‑like); open any store for detail. |
 | **Anomalies** | Triage detected anomalies by type & council confidence; click one to inspect it in context. |

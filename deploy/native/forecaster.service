@@ -1,0 +1,19 @@
+[Unit]
+Description=Secure Insights forecaster — API + dashboard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/sales-forecast
+Environment=SF_FORECAST_BACKEND=seasonal
+Environment=SF_API_HOST=127.0.0.1
+Environment=SF_API_PORT=8900
+Environment=SF_MCP_PORT=8901
+Environment=SF_DEMO_AGENT=1
+ExecStart=/root/sales-forecast/.venv/bin/uvicorn app.api.server:api --host 127.0.0.1 --port 8900
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

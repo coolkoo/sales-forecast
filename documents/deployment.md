@@ -1,4 +1,9 @@
-# Deployment
+# Deployment (Docker + GPU)
+
+> **Two deployment modes.** This doc covers the **containerized GPU** deployment (Docker
+> Compose + Postgres + Chronos‑2). For a **native** install (Python venv + systemd + nginx
+> + Let's Encrypt) on a host without a usable GPU — how `forecaster.secureinsights.ai` runs
+> alongside another live app — see **[deploy-native.md](deploy-native.md)**.
 
 How to ship the platform to the GPU server (**192.168.50.85**), running as a Docker
 Compose stack with a bundled Postgres and — optionally — the real Chronos‑2 backend on
