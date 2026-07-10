@@ -1133,11 +1133,47 @@ async function loadAskPage(){
       .map(s=>`<button class="btn ghost" style="padding:5px 10px;font-size:12px" onclick="$('askbox').value='${s}';runAsk()">${s}</button>`).join('');
   }
 }
+const askMoney=c=>/net|rev|sales|amount|cost|price|money|vnd|expected_net/i.test(c);
+const askFmt=(c,v)=>{v=Number(v)||0;return askMoney(c)?short(v):v.toLocaleString();};
+function askChart(viz,rows){
+  const cat=CAT();
+  if(viz.type==='pie'){
+    const rs=rows.slice(0,8).map(r=>({l:String(r[viz.label]),v:Number(r[viz.value])||0}));
+    const tot=rs.reduce((a,r)=>a+r.v,0)||1;let a0=-Math.PI/2,R=82,cx=100,cy=100,segs='',leg='';
+    rs.forEach((r,i)=>{const f=r.v/tot,a1=a0+f*2*Math.PI,c=cat[i%6];
+      const x0=cx+R*Math.cos(a0),y0=cy+R*Math.sin(a0),x1=cx+R*Math.cos(a1),y1=cy+R*Math.sin(a1),lg=f>0.5?1:0;
+      segs+=`<path d="M${cx},${cy} L${x0.toFixed(1)},${y0.toFixed(1)} A${R},${R} 0 ${lg} 1 ${x1.toFixed(1)},${y1.toFixed(1)} Z" fill="${c}"><title>${r.l}: ${askFmt(viz.value,r.v)} (${Math.round(f*100)}%)</title></path>`;
+      leg+=`<span><i style="background:${c}"></i>${r.l} · ${Math.round(f*100)}%</span>`;a0=a1;});
+    return `<svg viewBox="0 0 200 200" style="max-width:240px;margin:0 auto;display:block">${segs}</svg><div class="vlegend" style="justify-content:center">${leg}</div>`;
+  }
+  if(viz.type==='bar'){
+    const rs=rows.slice(0,15).map(r=>({l:String(r[viz.label]),v:Number(r[viz.value])||0}));
+    const max=Math.max(...rs.map(r=>r.v))||1,rh=28,W=620,pad={l:170,r:96,t:4},bw=W-pad.l-pad.r,H=rs.length*rh+6;
+    const g=rs.map((r,i)=>{const y=pad.t+i*rh,w=Math.max(bw*r.v/max,2);
+      return `<text text-anchor="end" x="${pad.l-8}" y="${y+rh/2+3}" style="fill:var(--muted);font-size:11px">${r.l.length>26?r.l.slice(0,25)+'…':r.l}</text>
+        <rect x="${pad.l}" y="${y+5}" width="${w.toFixed(1)}" height="${rh-12}" rx="4" fill="${cat[0]}"><title>${r.l}: ${askFmt(viz.value,r.v)}</title></rect>
+        <text x="${(pad.l+w+6).toFixed(1)}" y="${y+rh/2+3}" style="fill:var(--ink);font-size:11px;font-weight:600">${askFmt(viz.value,r.v)}</text>`;}).join('');
+    return `<svg viewBox="0 0 ${W} ${H}" style="max-width:100%">${g}</svg>`;
+  }
+  if(viz.type==='line'){
+    const pts=rows.map(r=>({x:String(r[viz.x]),v:Number(r[viz.value])||0}));const n=pts.length;if(n<2)return'';
+    const W=760,H=250,pad={l:64,r:16,t:14,b:30},ymax=Math.max(...pts.map(p=>p.v))*1.08||1,s1=cssv('--s1');
+    const X=i=>pad.l+(W-pad.l-pad.r)*(i/(n-1)),Y=v=>pad.t+(H-pad.t-pad.b)*(1-v/ymax);
+    const ln=pts.map((p,i)=>(i?'L':'M')+X(i).toFixed(1)+','+Y(p.v).toFixed(1)).join(' ');
+    const ar=ln+` L${X(n-1).toFixed(1)},${Y(0).toFixed(1)} L${X(0).toFixed(1)},${Y(0).toFixed(1)} Z`;
+    const yt=[0,ymax/2,ymax].map(v=>`<line x1="${pad.l}" y1="${Y(v).toFixed(1)}" x2="${W-pad.r}" y2="${Y(v).toFixed(1)}" style="stroke:var(--grid)"/><text x="6" y="${(Y(v)+3).toFixed(1)}" style="fill:var(--muted);font-size:10px">${askFmt(viz.value,v)}</text>`).join('');
+    const xt=pts.map((p,i)=>i%Math.ceil(n/8)===0?`<text x="${X(i).toFixed(1)}" y="${H-8}" text-anchor="middle" style="fill:var(--muted);font-size:10px">${p.x.length>7?p.x.slice(5):p.x}</text>`:'').join('');
+    return `<svg viewBox="0 0 ${W} ${H}" style="max-width:100%"><defs><linearGradient id="askg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${s1}" stop-opacity="0.3"/><stop offset="1" stop-color="${s1}" stop-opacity="0"/></linearGradient></defs>${yt}${xt}<path d="${ar}" fill="url(#askg)"/><path d="${ln}" fill="none" stroke="${s1}" stroke-width="2"/></svg>`;
+  }
+  return '';
+}
 async function runAsk(){
   const q=$('askbox').value.trim(); if(!q)return;
   const box=$('askresult'); box.style.display='block'; box.innerHTML='<p class="muted">Thinking…</p>';
   const d=await(await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q})})).json();
   let html=`<h3>${d.answer||'Result'}</h3>`;
+  if(d.engine) html+=`<p class="sub">engine: ${d.engine}</p>`;
+  if(d.viz&&d.viz.type&&d.viz.type!=='none'&&d.rows&&d.rows.length){const c=askChart(d.viz,d.rows);if(c)html+=`<div style="margin:6px 0 14px">${c}</div>`;}
   if(d.sql) html+=`<div class="note" style="font-family:ui-monospace,monospace;font-size:11.5px;white-space:pre-wrap">${d.sql}</div>`;
   if(d.suggestions) html+=`<p class="sub">Try: ${d.suggestions.map(s=>`<a href="#" onclick="$('askbox').value='${s}';runAsk();return false">${s}</a>`).join(' · ')}</p>`;
   if(d.rows&&d.rows.length){

@@ -165,10 +165,48 @@ def _llm_answer(q: str, cfg: dict) -> dict:
     return r
 
 
-def answer(question: str) -> dict:
-    """LLM-first when configured (answers arbitrary data/correlation questions), with the
-    deterministic rule engine as a always-available fallback."""
-    q = (question or "").strip()
+def _infer_viz(question: str, columns: list, rows: list) -> dict:
+    """Suggest a chart for the result: honours an explicit 'pie/bar/line' in the question,
+    else infers from the shape (categorical→bar, date series→line, small set + 'pie'→pie)."""
+    if not rows or not columns:
+        return {"type": "none"}
+    ql = (question or "").lower()
+
+    def _isnum(c):
+        vals = [r.get(c) for r in rows[:25] if r.get(c) is not None]
+        return bool(vals) and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in vals)
+
+    num = [c for c in columns if _isnum(c)]
+    if not num:
+        return {"type": "none"}
+    txt = [c for c in columns if c not in num]
+    date_col = next((c for c in columns if re.search(r"date|month|target_date|business_date|_at$|(^|_)day($|_)",
+                                                     c.lower())), None)
+    if re.search(r"unit|qty|quantity|sold|count", ql):
+        value = next((c for c in num if re.search(r"unit|qty|count|n_", c.lower())), num[0])
+    else:
+        value = next((c for c in num if re.search(r"net|rev|sales|amount|cost|value|total|price", c.lower())), num[-1])
+
+    if re.search(r"\bpie\b|donut", ql):
+        want = "pie"
+    elif re.search(r"\bline\b|trend|over time|by day|daily|time series|timeline", ql):
+        want = "line"
+    elif re.search(r"\bbar\b|column|chart|graph|plot|visuali", ql):
+        want = "bar"
+    else:
+        want = None
+
+    if date_col and (want == "line" or want is None) and len(rows) >= 3:
+        return {"type": "line", "x": date_col, "value": value}
+    label = txt[0] if txt else (date_col or columns[0])
+    if want == "pie" and 1 < len(rows) <= 8:
+        return {"type": "pie", "label": label, "value": value}
+    if want in ("bar", "pie") or (want is None and txt and 1 < len(rows) <= 25):
+        return {"type": "bar", "label": label, "value": value}
+    return {"type": "none"}
+
+
+def _dispatch(q: str) -> dict:
     from app import llm
     try:
         cfg = llm.config()
@@ -182,6 +220,19 @@ def answer(question: str) -> dict:
             fb["llm_note"] = f"LLM path fell back to the rule engine: {str(ex)[:140]}"
             return fb
     return _rule_answer(q)
+
+
+def answer(question: str) -> dict:
+    """LLM-first when configured (answers arbitrary data/correlation questions), with the
+    deterministic rule engine as fallback — then attaches a suggested chart (viz)."""
+    q = (question or "").strip()
+    res = _dispatch(q)
+    try:
+        if isinstance(res, dict) and res.get("rows") and res.get("intent") not in ("unknown", "error"):
+            res["viz"] = _infer_viz(q, res.get("columns") or list(res["rows"][0].keys()), res["rows"])
+    except Exception:
+        pass
+    return res
 
 
 # --- deterministic rule engine (fallback / zero-config) --------------------
