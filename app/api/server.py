@@ -460,6 +460,13 @@ def ask(req: AskReq):
     return nlsql.answer(req.q)
 
 
+@api.post("/api/ask/chat")
+def ask_chat(body: dict = Body(...)):
+    # Conversational analyst: body = {messages: [{role, content}, ...]}
+    from app import nlsql
+    return nlsql.chat(body.get("messages") or [])
+
+
 @api.get("/api/catalog/search")
 def catalog_search(q: str = ""):
     from app import nlsql

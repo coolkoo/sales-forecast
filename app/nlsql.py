@@ -189,12 +189,21 @@ def _infer_viz(question: str, columns: list, rows: list) -> dict:
 
     if re.search(r"\bpie\b|donut", ql):
         want = "pie"
+    elif re.search(r"heat ?map|heat-map", ql):
+        want = "heatmap"
     elif re.search(r"\bline\b|\btrend\b|over time|\bby day\b|\bdaily\b|time series|timeline", ql):
         want = "line"
     elif re.search(r"\bbar\b|\bcolumn\b|chart|graph|plot|visuali", ql):
         want = "bar"
     else:
         want = None
+
+    if want == "heatmap":       # needs two categorical dimensions + a value
+        if len(txt) >= 2:
+            uniq = lambda c: len({r.get(c) for r in rows})
+            x, y = (txt[0], txt[1]) if uniq(txt[0]) <= uniq(txt[1]) else (txt[1], txt[0])
+            return {"type": "heatmap", "x": x, "y": y, "value": value}
+        want = "bar"
 
     if date_col and (want == "line" or want is None) and len(rows) >= 3:
         return {"type": "line", "x": date_col, "value": value}
@@ -235,6 +244,61 @@ def answer(question: str) -> dict:
     except Exception:
         pass
     return res
+
+
+def _extract_sql(text: str):
+    """Pull a SELECT out of the model's reply (fenced ```sql``` block, or a bare SELECT)."""
+    m = re.search(r"```(?:sql)?\s*(.+?)```", text or "", re.S)
+    cand = (m.group(1).strip() if m else ((text or "").strip() if (text or "").strip().lower().startswith("select") else ""))
+    return cand if cand.lower().startswith("select") else None
+
+
+def chat(messages: list) -> dict:
+    """Conversational analyst. The LLM may query the warehouse (one guarded SELECT) and then
+    *interpret* the result in prose, with conversation memory. Returns
+    {reply, sql, columns, rows, viz}. Falls back to the rule engine when no LLM is configured."""
+    from app import llm
+    if not llm.configured():
+        last = next((m.get("content", "") for m in reversed(messages) if m.get("role") == "user"), "")
+        r = answer(last)
+        r["reply"] = ("No LLM is configured, so I can't hold a conversation — set one in Settings → LLM "
+                      "endpoint. Here's a direct query result for your last message:")
+        return r
+    allowed, schema = _safe_schema()
+    dialect = db.engine().dialect.name
+    system = (
+        "You are a friendly, sharp senior data analyst for KFC Vietnam's sales-forecasting & operations "
+        "platform. Have a natural conversation and give clear, specific, numeric insight.\n"
+        f"You can query the warehouse: when you need data, output ONE fenced ```sql``` block — a single "
+        f"read-only SELECT for a {dialect} database, using ONLY these tables/columns, no CTEs, always a "
+        "LIMIT (<=500). You will then receive the rows and must explain the answer conversationally — "
+        "interpret the numbers, call out correlations/trends, and suggest actions; do NOT just restate the "
+        "table. If a question doesn't need data (a clarification or follow-up), just answer. Money is "
+        "Vietnamese đồng (₫). Keep replies concise.\n\nSCHEMA:\n" + schema)
+    convo = [{"role": m["role"], "content": str(m.get("content", ""))}
+             for m in messages if m.get("role") in ("user", "assistant")][-12:]
+    first = llm.chat(convo, system=system, max_tokens=900)
+    sql = _extract_sql(first)
+    cols = rows = viz = None
+    reply = first
+    if sql:
+        import json as _json
+        try:
+            safe = _safe_sql(sql, allowed)
+            res = _q(safe)
+            cols, rows, sql = res["columns"], res["rows"], safe
+            qtext = next((m.get("content", "") for m in reversed(messages) if m.get("role") == "user"), "")
+            viz = _infer_viz(qtext, cols, rows)
+            data_msg = (f"Here are the query results ({len(rows)} rows):\n"
+                        + _json.dumps(rows[:80], default=str)
+                        + "\n\nNow answer my question conversationally using these results.")
+            reply = llm.chat(convo + [{"role": "assistant", "content": first},
+                                      {"role": "user", "content": data_msg}], system=system, max_tokens=900)
+        except Exception as ex:
+            reply = (first.split("```")[0].strip() or "I tried to pull that data, but the query failed.") + \
+                    f"\n\n(query error: {str(ex)[:120]})"
+            sql = cols = rows = viz = None
+    return {"reply": reply, "sql": sql, "columns": cols, "rows": rows or [], "viz": viz}
 
 
 # --- deterministic rule engine (fallback / zero-config) --------------------

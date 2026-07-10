@@ -47,33 +47,28 @@ def configured() -> bool:
     return config()["configured"]
 
 
-def complete(prompt: str, system: str | None = None, max_tokens: int = 1600,
-             cfg: dict | None = None) -> str:
-    """Call the configured LLM and return its text. Raises RuntimeError (with the API's
-    own message) on any failure so callers can log it and fall back."""
+def _call(messages: list, system: str | None, max_tokens: int, cfg: dict) -> str:
+    """Core call: a full messages array → text. Raises RuntimeError with the API's message."""
     import requests
-    cfg = cfg or config()
     if not cfg["configured"]:
         raise RuntimeError("no LLM configured")
     prov = cfg["provider"]
     model = cfg["model"] or ("claude-sonnet-5" if prov == "anthropic" else "gpt-4o-mini")
     try:
         if prov == "anthropic":
-            body = {"model": model, "max_tokens": max_tokens,
-                    "messages": [{"role": "user", "content": prompt}]}
+            body = {"model": model, "max_tokens": max_tokens, "messages": messages}
             if system:
                 body["system"] = system
             r = requests.post("https://api.anthropic.com/v1/messages",
                               headers={"x-api-key": cfg["api_key"], "anthropic-version": "2023-06-01",
-                                       "content-type": "application/json"}, json=body, timeout=60)
+                                       "content-type": "application/json"}, json=body, timeout=90)
         else:
             base = (cfg["base_url"] or "https://api.openai.com/v1").rstrip("/")
-            msgs = ([{"role": "system", "content": system}] if system else []) + \
-                   [{"role": "user", "content": prompt}]
+            msgs = ([{"role": "system", "content": system}] if system else []) + messages
             r = requests.post(base + "/chat/completions",
                               headers={"Authorization": "Bearer " + cfg["api_key"],
                                        "content-type": "application/json"},
-                              json={"model": model, "max_tokens": max_tokens, "messages": msgs}, timeout=60)
+                              json={"model": model, "max_tokens": max_tokens, "messages": msgs}, timeout=90)
     except Exception as ex:
         raise RuntimeError(f"connection error: {ex}")
     if r.status_code >= 400:
@@ -93,6 +88,18 @@ def complete(prompt: str, system: str | None = None, max_tokens: int = 1600,
     if not out:
         raise RuntimeError(f"{prov} returned empty content")
     return out
+
+
+def complete(prompt: str, system: str | None = None, max_tokens: int = 1600,
+             cfg: dict | None = None) -> str:
+    """Single-turn completion."""
+    return _call([{"role": "user", "content": prompt}], system, max_tokens, cfg or config())
+
+
+def chat(messages: list, system: str | None = None, max_tokens: int = 1200,
+         cfg: dict | None = None) -> str:
+    """Multi-turn chat: `messages` is [{role: user|assistant, content}]."""
+    return _call(messages, system, max_tokens, cfg or config())
 
 
 def health() -> dict:
