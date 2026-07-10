@@ -19,7 +19,7 @@ import datetime
 import hashlib
 import math
 
-from sqlalchemy import (Column, DateTime, Float, MetaData, String, Table, text)
+from sqlalchemy import (Column, DateTime, Float, Integer, MetaData, String, Table, text)
 
 from app import db
 
@@ -42,6 +42,16 @@ _event = Table("health_event", _MD,
                Column("ts", DateTime), Column("store", String), Column("service", String),
                Column("kind", String), Column("status", String), Column("action", String),
                Column("actor", String), Column("note", String))
+# Registry of store-node agents (presence) + the remediation command queue.
+_agent = Table("node_agent", _MD, Column("store", String, primary_key=True),
+               Column("hostname", String), Column("version", String), Column("ip", String),
+               Column("last_seen", DateTime))
+_cmd = Table("node_command", _MD, Column("id", Integer, primary_key=True, autoincrement=True),
+             Column("store", String), Column("service", String), Column("action", String),
+             Column("status", String), Column("requested_by", String), Column("requested_at", DateTime),
+             Column("result", String), Column("completed_at", DateTime))
+
+AGENT_ACTIVE_SEC = 180   # an agent seen within this window is 'live' → dispatch, else simulate
 
 # Service catalog: what each store node monitors + which actions can remediate it.
 SERVICES = [
@@ -65,7 +75,7 @@ SERVICES = [
 ]
 _BYKEY = {s["key"]: s for s in SERVICES}
 _ACTIONS = {a[0]: (s["key"], a[1]) for s in SERVICES for a in s["actions"]}
-SEV = {"ok": 0, "warn": 1, "critical": 2, "down": 3, "offline": 3}
+SEV = {"ok": 0, "remediating": 1, "warn": 1, "critical": 2, "down": 3, "offline": 3}
 REMEDIATION_HOLD_H = 24   # a remediated service stays resolved this long before re-evaluation
 
 
@@ -74,7 +84,7 @@ def _now():
 
 
 def ensure():
-    _MD.create_all(db.engine(), tables=[_health, _event], checkfirst=True)
+    _MD.create_all(db.engine(), tables=[_health, _event, _agent, _cmd], checkfirst=True)
 
 
 def _h01(*parts) -> float:
@@ -167,7 +177,7 @@ def refresh() -> dict:
     anom = _recent_anomaly_types()
     now = _now()
     existing = {(r["store"], r["service"]): r for r in db.read_sql(
-        "SELECT store, service, status, since, source, remediated_at FROM store_health").to_dict("records")}
+        "SELECT store, service, status, detail, since, source, remediated_at FROM store_health").to_dict("records")}
     rows = []
     for st in stores:
         tgt = _target(st, anom.get(st, set()))
@@ -175,8 +185,14 @@ def refresh() -> dict:
             prev = existing.get((st, svc))
             src = (prev or {}).get("source")
             rem = (prev or {}).get("remediated_at")
-            # keep agent-reported services as-is; keep recently-remediated services resolved
+            # keep agent-reported services as-is; keep a dispatched-but-unconfirmed remediation
             if src == "agent":
+                continue
+            if (prev or {}).get("status") == "remediating":
+                rows.append({"store": st, "service": svc, "status": "remediating", "metric": None,
+                             "detail": (prev or {}).get("detail") or "Remediation in progress",
+                             "since": _parse_ts((prev or {}).get("since")) or now, "last_report": now,
+                             "source": "derived", "remediated_at": _parse_ts(rem)})
                 continue
             status, metric, detail = info["status"], info["metric"], info["detail"]
             remediated_at = _parse_ts(rem)
@@ -204,8 +220,18 @@ def _parse_ts(v):
         return None
 
 
-def report(payload: dict) -> dict:
-    """Listener: a store node agent posts its service statuses here."""
+def _agent_active(store: str) -> bool:
+    if not db.table_exists("node_agent"):
+        return False
+    r = db.read_sql("SELECT last_seen FROM node_agent WHERE store=:s", {"s": store})
+    if r.empty:
+        return False
+    ls = _parse_ts(r["last_seen"].iloc[0])
+    return bool(ls and (_now() - ls).total_seconds() <= AGENT_ACTIVE_SEC)
+
+
+def report(payload: dict, ip: str = "") -> dict:
+    """Listener: a store node agent posts its service statuses here (+ registers presence)."""
     ensure()
     store = str(payload.get("store", "")).strip()
     services = payload.get("services") or []
@@ -213,6 +239,9 @@ def report(payload: dict) -> dict:
         return {"error": "store and services[] required"}
     now = _now()
     with db.engine().begin() as cx:
+        cx.execute(text("DELETE FROM node_agent WHERE store=:s"), {"s": store})
+        cx.execute(_agent.insert(), {"store": store, "hostname": str(payload.get("hostname", "")),
+                   "version": str(payload.get("version", "")), "ip": ip, "last_seen": now})
         for s in services:
             svc = str(s.get("service", ""))
             if svc not in _BYKEY:
@@ -238,14 +267,14 @@ def fleet() -> dict:
         refresh()
     df = db.read_sql("SELECT store, service, status, detail, last_report FROM store_health")
     stores = []
-    counts = {"ok": 0, "warn": 0, "critical": 0, "down": 0}
+    counts = {"ok": 0, "remediating": 0, "warn": 0, "critical": 0, "down": 0}
     services_down = 0
     security_alerts = 0
     for st, g in df.groupby("store"):
         recs = g.to_dict("records")
         statuses = [r["status"] for r in recs]
         ov = _overall(statuses)
-        counts[ov if ov in counts else "down"] = counts.get(ov if ov in counts else "down", 0) + 1
+        counts[ov] = counts.get(ov, 0) + 1
         services_down += sum(1 for s in statuses if SEV.get(s, 0) >= 2)
         sec = [r for r in recs if r["service"] == "security" and SEV.get(r["status"], 0) >= 2]
         security_alerts += len(sec)
@@ -259,7 +288,7 @@ def fleet() -> dict:
                                      if bad else "All services healthy")})
     stores.sort(key=lambda s: (-SEV.get(s["overall"], 0), s["store"]))
     return {"summary": {"stores": len(stores), "healthy": counts.get("ok", 0),
-                        "degraded": counts.get("warn", 0),
+                        "degraded": counts.get("warn", 0) + counts.get("remediating", 0),
                         "critical": counts.get("critical", 0) + counts.get("down", 0),
                         "services_down": services_down, "security_alerts": security_alerts},
             "stores": stores, "catalog": SERVICES}
@@ -273,7 +302,7 @@ def store_detail(store: str) -> dict:
     for s in SERVICES:
         r = by.get(s["key"], {})
         st = r.get("status", "ok")
-        remediable = SEV.get(st, 0) >= 1 and bool(s["actions"])
+        remediable = SEV.get(st, 0) >= 1 and st != "remediating" and bool(s["actions"])
         services.append({"key": s["key"], "name": s["name"], "icon": s["icon"],
                          "status": st, "metric": r.get("metric"), "detail": r.get("detail", "—"),
                          "since": str(r.get("since", "")), "last_report": str(r.get("last_report", "")),
@@ -299,23 +328,79 @@ def events(limit: int = 40) -> list[dict]:
 
 
 def remediate(store: str, service: str, action: str, actor: str = "operator") -> dict:
-    """Apply a remediation action to a store service — validates, resolves, logs."""
+    """Remediate a store service. If a live node agent is present, DISPATCH the action
+    to it (status → 'remediating', agent executes and confirms). Otherwise SIMULATE
+    (resolve + 24h hold) so the platform is useful before real agents are deployed."""
     ensure()
     if action not in _ACTIONS:
         return {"error": f"unknown action '{action}'"}
     svc_key, label = _ACTIONS[action]
     if service and service != svc_key:
         return {"error": f"action '{action}' does not apply to service '{service}'"}
+    if db.read_sql("SELECT status FROM store_health WHERE store=:s AND service=:v",
+                   {"s": store, "v": svc_key}).empty:
+        return {"error": "no such store/service"}
     now = _now()
+    if _agent_active(store):
+        with db.engine().begin() as cx:
+            cx.execute(_cmd.insert(), {"store": store, "service": svc_key, "action": action,
+                       "status": "pending", "requested_by": actor, "requested_at": now,
+                       "result": None, "completed_at": None})
+            cx.execute(text("UPDATE store_health SET status='remediating', detail=:d, since=:t "
+                            "WHERE store=:s AND service=:v"),
+                       {"d": f"Dispatched '{label}' to node — awaiting confirmation", "t": now,
+                        "s": store, "v": svc_key})
+            cx.execute(_event.insert(), {"ts": now, "store": store, "service": svc_key,
+                       "kind": "remediation_requested", "status": "remediating", "action": action,
+                       "actor": actor, "note": label})
+        return {"ok": True, "dispatched": True, "store": store, "service": svc_key, "action": action,
+                "label": label, "result": f"{label} dispatched to {store} node — awaiting confirmation"}
     with db.engine().begin() as cx:
-        row = db.read_sql("SELECT status FROM store_health WHERE store=:s AND service=:v",
-                          {"s": store, "v": svc_key})
-        if row.empty:
-            return {"error": "no such store/service"}
         cx.execute(text("UPDATE store_health SET status='ok', detail=:d, since=:t, "
                         "remediated_at=:t, source='derived' WHERE store=:s AND service=:v"),
                    {"d": f"Resolved via '{label}' — monitoring", "t": now, "s": store, "v": svc_key})
         cx.execute(_event.insert(), {"ts": now, "store": store, "service": svc_key, "kind": "remediation",
                    "status": "ok", "action": action, "actor": actor, "note": label})
-    return {"ok": True, "store": store, "service": svc_key, "action": action, "label": label,
-            "result": f"{label} — {store} {svc_key} resolved"}
+    return {"ok": True, "simulated": True, "store": store, "service": svc_key, "action": action,
+            "label": label, "result": f"{label} — {store} {svc_key} resolved (simulated; no live agent)"}
+
+
+def pending_commands(store: str) -> dict:
+    """Agent poll: return + claim pending remediation commands for this store."""
+    ensure()
+    df = db.read_sql("SELECT id, service, action FROM node_command "
+                     "WHERE store=:s AND status='pending' ORDER BY id", {"s": store})
+    rows = df.to_dict("records")
+    if rows:
+        with db.engine().begin() as cx:
+            for r in rows:
+                cx.execute(text("UPDATE node_command SET status='dispatched' WHERE id=:i"),
+                           {"i": int(r["id"])})
+    return {"store": store, "commands": [{"id": int(r["id"]), "service": r["service"],
+                                          "action": r["action"]} for r in rows]}
+
+
+def command_result(command_id: int, status: str, result: str = "", actor: str = "agent") -> dict:
+    """Agent ack: the node reports the outcome of a dispatched remediation command."""
+    ensure()
+    r = db.read_sql("SELECT store, service, action FROM node_command WHERE id=:i", {"i": command_id})
+    if r.empty:
+        return {"error": "unknown command id"}
+    row = r.iloc[0].to_dict()
+    ok = (status == "done")
+    now = _now()
+    with db.engine().begin() as cx:
+        cx.execute(text("UPDATE node_command SET status=:st, result=:r, completed_at=:t WHERE id=:i"),
+                   {"st": "done" if ok else "failed", "r": str(result)[:500], "t": now, "i": command_id})
+        if ok:
+            cx.execute(text("UPDATE store_health SET status='ok', detail=:d, since=:t, remediated_at=:t "
+                            "WHERE store=:s AND service=:v"),
+                       {"d": f"Resolved by node: {row['action']}", "t": now,
+                        "s": row["store"], "v": row["service"]})
+        else:
+            cx.execute(text("UPDATE store_health SET detail=:d WHERE store=:s AND service=:v"),
+                       {"d": f"Remediation failed: {str(result)[:120]}", "s": row["store"], "v": row["service"]})
+        cx.execute(_event.insert(), {"ts": now, "store": row["store"], "service": row["service"],
+                   "kind": "remediation_result", "status": "ok" if ok else "failed",
+                   "action": row["action"], "actor": actor, "note": str(result)[:200]})
+    return {"ok": True, "command_id": command_id, "status": "done" if ok else "failed"}

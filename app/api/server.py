@@ -18,7 +18,8 @@ DASHBOARD = Path(__file__).resolve().parent.parent / "dashboard" / "index.html"
 
 # --- RBAC: enforce auth + role on every API route (open list bypasses) -------
 _OPEN = {"/", "/api/health", "/api/auth/login", "/api/auth/signup", "/api/auth/me", "/api/auth/logout",
-         "/favicon.ico", "/api/monitor/report"}   # /report is the store-node agent listener (token-guarded)
+         "/favicon.ico", "/api/monitor/report", "/api/monitor/commands", "/api/monitor/command_result"}
+# ^ the /monitor/report|commands|command_result routes are the store-node agent channel (node-token guarded)
 _OPEN_PREFIX = ("/assets/", "/odata", "/api/export/")   # read-only BI feeds + static assets
 _ADMIN_WRITE = ("/api/settings", "/api/alerts/config", "/api/report/ai/config")
 
@@ -507,15 +508,39 @@ def monitor_remediate(request: Request, body: dict = Body(...)):
                             str(body.get("action", "")), actor=actor)
 
 
+def _node_auth(request: Request) -> bool:
+    if not CFG.NODE_TOKEN:
+        return True
+    tok = request.headers.get("x-node-token") or request.headers.get("authorization", "").replace("Bearer ", "")
+    return tok == CFG.NODE_TOKEN
+
+
 @api.post("/api/monitor/report")
 def monitor_report(request: Request, body: dict = Body(...)):
     # Store-node agent listener. Token-guarded (open route); accepts a service-status batch.
-    if CFG.NODE_TOKEN:
-        tok = request.headers.get("x-node-token") or request.headers.get("authorization", "").replace("Bearer ", "")
-        if tok != CFG.NODE_TOKEN:
-            return JSONResponse({"error": "invalid node token"}, status_code=401)
+    if not _node_auth(request):
+        return JSONResponse({"error": "invalid node token"}, status_code=401)
     from app import health
-    return health.report(body)
+    return health.report(body, ip=(request.client.host if request.client else ""))
+
+
+@api.get("/api/monitor/commands")
+def monitor_commands(request: Request, store: str = Query(...)):
+    # Agent polls for pending remediation commands (claims them).
+    if not _node_auth(request):
+        return JSONResponse({"error": "invalid node token"}, status_code=401)
+    from app import health
+    return health.pending_commands(store)
+
+
+@api.post("/api/monitor/command_result")
+def monitor_command_result(request: Request, body: dict = Body(...)):
+    # Agent reports the outcome of a dispatched remediation command.
+    if not _node_auth(request):
+        return JSONResponse({"error": "invalid node token"}, status_code=401)
+    from app import health
+    return health.command_result(int(body.get("command_id", 0)), str(body.get("status", "")),
+                                 str(body.get("result", "")), actor="agent")
 
 
 @api.get("/api/forecast/hindcast")

@@ -1,0 +1,21 @@
+[Unit]
+Description=KFC Sales-Forecast store-node health agent
+Documentation=https://github.com/coolkoo/sales-forecast
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/sales-forecast-agent.env
+ExecStart=/usr/bin/python3 /opt/sales-forecast-agent/agent.py
+Restart=always
+RestartSec=10
+# Remediation (systemctl restart, iptables block_ip) needs privilege. Run as root, or
+# create a dedicated user with the specific sudo/polkit/CAP_NET_ADMIN grants you allow.
+User=root
+# Harden as appropriate for your fleet:
+# ProtectSystem=full
+# ReadWritePaths=/var/log
+
+[Install]
+WantedBy=multi-user.target

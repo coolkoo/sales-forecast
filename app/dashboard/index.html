@@ -245,6 +245,7 @@
   .st-ok{background:rgba(12,163,12,.15);color:var(--good)} .stripe-ok{background:var(--good)} .badge-ok{background:rgba(12,163,12,.16);color:var(--good)}
   .st-warn{background:rgba(250,178,25,.17);color:var(--warn)} .stripe-warn{background:var(--warn)} .badge-warn{background:rgba(250,178,25,.18);color:var(--warn)}
   .st-critical,.st-down{background:rgba(224,87,87,.16);color:var(--critical)} .stripe-critical,.stripe-down{background:var(--critical)} .badge-critical,.badge-down{background:rgba(224,87,87,.16);color:var(--critical)}
+  .st-remediating{background:rgba(91,155,255,.16);color:var(--accent)} .stripe-remediating{background:var(--accent)} .badge-remediating{background:rgba(91,155,255,.16);color:var(--accent)}
   .hsvcrow{display:flex;align-items:center;gap:11px;padding:11px 2px;border-bottom:1px solid var(--grid)}
   .hsvcrow:last-child{border-bottom:none}
   .hsvcrow .hic{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;flex:none}
@@ -910,7 +911,7 @@ function rptAreaHover(ev){const A=RPT.area;if(!A)return;const svg=ev.currentTarg
 
 /* ================= Store health monitor ================= */
 const HSVC_ICON={pos:'🧾',host:'🖥️',network:'🌐',payment:'💳',kds:'👨‍🍳',printer:'🖨️',backup:'💾',security:'🛡️'};
-const HLABEL={ok:'Healthy',warn:'Degraded',critical:'Critical',down:'Down',offline:'Offline'};
+const HLABEL={ok:'Healthy',remediating:'Remediating…',warn:'Degraded',critical:'Critical',down:'Down',offline:'Offline'};
 const hcls=s=>(s==='down'||s==='offline')?'down':s;
 async function loadMonitorPage(force){
   const f=await get('/api/monitor/fleet'+(force?('?_='+Date.now()):''));
