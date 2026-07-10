@@ -202,6 +202,67 @@
   .help .k{color:var(--accent);font-weight:600}
   .help .tip{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:12.5px;color:var(--ink);margin:9px 0;line-height:1.5}
   .help code{font-family:ui-monospace,monospace;font-size:11.5px;background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+
+  /* ---------- Enhanced dashboard report (popup) ---------- */
+  .rptmodal{position:fixed;inset:0;z-index:60;background:rgba(6,8,12,.62);backdrop-filter:blur(3px);
+    display:none;overflow-y:auto;padding:26px 16px}
+  .rptmodal.open{display:block}
+  .rptcanvas{max-width:1200px;margin:0 auto;background:var(--bg);border:1px solid var(--line);
+    border-radius:16px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.45)}
+  .rpthead{position:relative;padding:22px 26px;color:#fff;
+    background:linear-gradient(120deg,#b3001b 0%,#e4002b 48%,#7a1220 100%)}
+  .rpthead .rbrand{display:flex;align-items:center;gap:13px}
+  .rpthead .rlogo{height:38px;width:auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3))}
+  .rpthead h2{margin:0;font-size:20px;font-weight:740;letter-spacing:-.01em}
+  .rpthead .rmeta{font-size:12px;opacity:.9;margin-top:2px}
+  .rpthead .ractions{position:absolute;top:18px;right:20px;display:flex;gap:8px}
+  .rptbtn{background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.3);
+    border-radius:8px;padding:7px 13px;font-size:12.5px;font-weight:600;cursor:pointer}
+  .rptbtn:hover{background:rgba(255,255,255,.28)}
+  .rptbtn.solid{background:#fff;color:#b3001b;border-color:#fff}
+  .rptbody{padding:22px 26px 30px}
+  .rptkpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:13px;margin-bottom:18px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:14px 15px;position:relative;overflow:hidden}
+  .kpi .kl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;font-weight:700}
+  .kpi .kv{font-size:24px;font-weight:750;margin-top:6px;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .kpi .ks{font-size:11.5px;color:var(--muted);margin-top:3px}
+  .kpi .kspark{position:absolute;right:10px;bottom:8px;opacity:.85}
+  .chip{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:20px;vertical-align:middle}
+  .chip.up{background:rgba(12,163,12,.16);color:var(--good)}
+  .chip.down{background:rgba(224,87,87,.16);color:var(--critical)}
+  .rptgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .rptgrid .span2{grid-column:1 / -1}
+  @media(max-width:820px){.rptgrid{grid-template-columns:1fr}}
+  .viz{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:15px 16px}
+  .viz h4{margin:0 0 2px;font-size:12px;font-weight:680;text-transform:uppercase;letter-spacing:.5px;color:var(--ink)}
+  .viz .vsub{font-size:11px;color:var(--muted);margin:0 0 10px}
+  .viz svg{display:block;width:100%;height:auto}
+  .vlegend{display:flex;flex-wrap:wrap;gap:12px;margin-top:8px;font-size:11.5px;color:var(--muted)}
+  .vlegend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+  .rtable{width:100%;border-collapse:collapse;font-size:12.5px}
+  .rtable th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;padding:5px 6px;border-bottom:1px solid var(--line)}
+  .rtable td{padding:6px 6px;border-bottom:1px solid var(--grid)}
+  .rtable td.num{text-align:right;font-variant-numeric:tabular-nums}
+  .rbar{height:7px;border-radius:4px;background:var(--panel2);overflow:hidden;min-width:44px}
+  .rbar i{display:block;height:100%;background:var(--s1)}
+  .scard{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 2px;border-bottom:1px solid var(--grid)}
+  .scard:last-child{border-bottom:none}
+  .scard .sm{font-size:12.5px}.scard .st{font-size:10.5px;color:var(--muted)}
+  .anrow{display:flex;gap:9px;padding:8px 2px;border-bottom:1px solid var(--grid);font-size:12px}
+  .anrow:last-child{border-bottom:none}
+  .andot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex:none}
+  .rpttip{position:fixed;z-index:70;pointer-events:none;background:var(--panel);border:1px solid var(--line);
+    border-radius:8px;padding:7px 10px;font-size:12px;color:var(--ink);box-shadow:0 6px 18px rgba(0,0,0,.3);display:none;
+    font-variant-numeric:tabular-nums;white-space:nowrap}
+  .rptfoot{margin-top:20px;padding-top:12px;border-top:1px solid var(--line);font-size:11px;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+  @media print{
+    body>*:not(#reportmodal){display:none!important}
+    .rptmodal{position:static;background:none;backdrop-filter:none;padding:0;display:block!important;overflow:visible}
+    .rptcanvas{max-width:none;border:none;box-shadow:none;border-radius:0}
+    .ractions{display:none!important}
+    .viz,.kpi{break-inside:avoid}
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
 </style>
 </head>
 <body>
@@ -365,6 +426,11 @@
 
   <section id="tab-reports" hidden>
     <h2 class="sec">Reports</h2>
+    <div class="card" style="background:linear-gradient(120deg,var(--panel),var(--navactive));display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div><h3 style="color:var(--ink);font-size:14px;text-transform:none;letter-spacing:0">📊 Executive dashboard report</h3>
+        <p class="sub" style="font-size:12px;margin:2px 0 0">A visual, PowerBI-style one-page report — KPIs, trends, channel &amp; store performance, forecast accuracy, and live anomalies. Print or present.</p></div>
+      <button class="btn" style="font-size:13px;padding:9px 18px" onclick="openDashboardReport()">Open dashboard report →</button>
+    </div>
     <div class="card">
       <h3>🤖 AI executive report <span class="hint">· generated narrative</span>
         <button class="btn" style="float:right" id="genai">Generate</button>
@@ -432,6 +498,9 @@
   <div class="dhead"><h3 id="dtitle"></h3><button class="x" onclick="closeDrawer()">×</button></div>
   <div class="dbody" id="dbody"></div>
 </aside>
+
+<div class="rptmodal" id="reportmodal"><div class="rptcanvas" id="rptcanvas"></div></div>
+<div class="rpttip" id="rpttip"></div>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -645,6 +714,166 @@ async function renderChannelMix(){
     if($('chmix-legend'))$('chmix-legend').innerHTML='';
   }catch(e){}
 }
+
+/* ================= Enhanced dashboard report (popup) ================= */
+let RPT={};
+const rtip=()=>$('rpttip');
+function rtipShow(ev,html){const t=rtip();t.innerHTML=html;t.style.display='block';t.style.left=(ev.clientX+14)+'px';t.style.top=(ev.clientY+14)+'px';}
+function rtipHide(){rtip().style.display='none';}
+const CAT=()=>['--s1','--s2','--s3','--s4','--s5','--s6'].map(cssv);
+const SEV={POS_OUTAGE:'--critical',VOID_COMP_FRAUD:'--critical',DEMAND_DROP:'--serious',DEMAND_SPIKE:'--warn',INVENTORY_VARIANCE:'--serious',CHANNEL_OUTAGE:'--accent'};
+
+async function openDashboardReport(){
+  const m=$('reportmodal'),cv=$('rptcanvas');
+  m.classList.add('open');document.body.style.overflow='hidden';
+  cv.innerHTML='<div class="rpthead"><div class="rbrand"><h2>Building report…</h2></div></div>';
+  try{
+    const [sm,trend,ch,dp,cat,stores,sss,dow,top,sc,anoms,bt]=await Promise.all([
+      get('/api/analytics/summary?lang='+LANG),get('/api/analytics/trend'),get('/api/analytics/channel_mix'),
+      get('/api/analytics/daypart'),get('/api/analytics/category'),get('/api/analytics/stores'),
+      get('/api/analytics/sss'),get('/api/analytics/dow'),get('/api/analytics/top_items?n=8'),
+      get('/api/metrics/scorecard'),get('/api/anomalies'),get('/api/backtest/store_daily')]);
+    renderReport({sm,trend,ch,dp,cat,stores,sss,dow,top,sc,anoms,bt});
+  }catch(e){cv.innerHTML='<div class="rpthead"><div class="rbrand"><h2>Report unavailable</h2></div></div><div class="rptbody"><p class="muted">'+e+'</p></div>';}
+}
+function closeReport(){$('reportmodal').classList.remove('open');document.body.style.overflow='';rtipHide();}
+
+function renderReport(d){
+  const cat=CAT(),k=d.sm.kpis,through=d.sm.run_through;
+  const gen=new Date().toLocaleString();
+  const gpct=Math.round((k.growth_vs_history||0)*100);
+  const gchip=`<span class="chip ${gpct>=0?'up':'down'}">${gpct>=0?'▲':'▼'} ${Math.abs(gpct)}%</span>`;
+  const btmeet=d.bt.meets_target, mapechip=`<span class="chip ${btmeet?'up':'down'}">${btmeet?'✓ ≤10%':'>10%'}</span>`;
+  const ss=d.sss.chain_sss_pct, sschip=`<span class="chip ${ss>=0?'up':'down'}">${ss>=0?'▲':'▼'} ${Math.abs(ss)}%</span>`;
+  const spark=sparkline((d.trend.history||[]).slice(-30).map(p=>p.net));
+  const kpis=[
+    ['Forecast revenue',short(k.forecast_net_total),`next ${d.sm.horizon_days} days`,spark],
+    ['Revenue / day',short(k.forecast_net_daily),`${gchip} vs history`,''],
+    ['Store-daily accuracy',d.bt.mape_pct+'% MAPE',`${mapechip} · ${d.bt.band_coverage_pct}% band`,''],
+    ['Same-store sales',(ss>=0?'+':'')+ss+'%',`${sschip} vs prior yr`,''],
+    ['Open anomalies',k.anomalies,'flagged & attributed',''],
+    ['Weekend share',Math.round(k.weekend_share*100)+'%','Fri–Sun of weekly',''],
+  ].map(([l,v,s,sp])=>`<div class="kpi"><div class="kl">${l}</div><div class="kv">${v}</div><div class="ks">${s}</div>${sp?`<div class="kspark">${sp}</div>`:''}</div>`).join('');
+
+  // channel mix — fixed order, categorical hues
+  const chTot=d.ch.channels.reduce((a,c)=>a+c.net,0)||1;
+  const chItems=d.ch.channels.map((c,i)=>({label:c.label,value:c.net,pct:Math.round(c.net/chTot*100),color:cat[i%6]}));
+  const pTot=d.ch.partners.reduce((a,p)=>a+p.net,0)||1;
+  const pItems=d.ch.partners.map((p,i)=>({label:p.partner,value:p.net,pct:Math.round(p.net/pTot*100),color:[cat[2],cat[4],cat[5]][i%3]}));
+  // daypart
+  const dpItems=d.dp.map((x,i)=>({label:x.daypart,value:x.net,color:cat[i%6]}));
+  // category top 6
+  const catItems=d.cat.slice(0,6).map((x,i)=>({label:x.category,value:x.net,color:cssv('--s1')}));
+  // weekday
+  const dowItems=d.dow.map(x=>({label:x.dow,value:x.index,color:x.index>=1.2?cssv('--accent'):cssv('--s1')}));
+  // store league
+  const sssBy={}; (d.sss.comparable||[]).forEach(s=>sssBy[s.store]=s.growth_pct);
+  const smax=Math.max(...d.stores.map(s=>s.net))||1;
+  const league=d.stores.map((s,i)=>{const g=sssBy[s.store];const chip=g==null?'':`<span class="chip ${g>=0?'up':'down'}">${g>=0?'+':''}${g}%</span>`;
+    return `<tr><td style="color:var(--muted)">${i+1}</td><td><b>${s.store}</b></td><td class="num">${short(s.net)}</td>
+      <td style="width:120px"><div class="rbar"><i style="width:${Math.max(s.net/smax*100,3)}%"></i></div></td><td class="num">${chip}</td></tr>`;}).join('');
+  // scorecard
+  const scRows=d.sc.rows.map(r=>`<div class="scard"><div><div class="sm">${r.metric}</div><div class="st">target ${r.target}</div></div>
+    <div style="text-align:right"><div class="sm"><b>${r.value}</b></div><span class="chip ${r.meets?'up':'down'}">${r.meets?'✓ meets':'pending'}</span></div></div>`).join('');
+  // anomalies
+  const anRows=(Array.isArray(d.anoms)?d.anoms:[]).slice(0,6).map(a=>{const c=cssv(SEV[a.type]||'--muted');
+    return `<div class="anrow"><span class="andot" style="background:${c}"></span><div><b>${a.type.replace(/_/g,' ')}</b> · ${a.store}${a.target&&a.target!=='ALL'?' · '+a.target:''}
+      <div style="color:var(--muted);font-size:11px;margin-top:1px">${a.driver_summary||a.description||''}</div></div></div>`;}).join('')||'<p class="muted" style="font-size:12px">No open anomalies.</p>';
+
+  $('rptcanvas').innerHTML=`
+  <div class="rpthead">
+    <div class="ractions"><button class="rptbtn solid" onclick="window.print()">⎙ Print / PDF</button><button class="rptbtn" onclick="closeReport()">✕ Close</button></div>
+    <div class="rbrand"><span style="background:#fff;border-radius:8px;padding:5px 9px;display:inline-flex"><img class="rlogo" src="/assets/kfc-logo.svg" alt="KFC"></span>
+      <div><h2>Executive Performance Report</h2><div class="rmeta">KFC Vietnam · chain-wide · data through ${through} · generated ${gen}</div></div></div>
+  </div>
+  <div class="rptbody">
+    <div class="rptkpis">${kpis}</div>
+    <div class="rptgrid">
+      <div class="viz span2"><h4>Net revenue — 90-day actual + 14-day forecast</h4><p class="vsub">hover for daily detail · dashed = forecast</p><div id="rz_trend"></div>
+        <div class="vlegend"><span><i style="background:${cssv('--s1')}"></i>actual</span><span><i style="background:${cssv('--s3')}"></i>forecast</span></div></div>
+      <div class="viz"><h4>Channel mix</h4><p class="vsub">net revenue share · last ${d.ch.days} days</p><div id="rz_ch"></div></div>
+      <div class="viz"><h4>Daypart mix</h4><p class="vsub">forecast net revenue</p><div id="rz_dp"></div>
+        <div class="vlegend">${dpItems.map(x=>`<span><i style="background:${x.color}"></i>${x.label}</span>`).join('')}</div></div>
+      <div class="viz"><h4>Category performance</h4><p class="vsub">net revenue, top categories</p><div id="rz_cat"></div></div>
+      <div class="viz"><h4>Delivery partners</h4><p class="vsub">share of delivery channel</p><div id="rz_pt"></div></div>
+      <div class="viz"><h4>Store performance league</h4><p class="vsub">forecast revenue + same-store-sales vs prior year</p>
+        <table class="rtable"><tr><th>#</th><th>Store</th><th class="num">Revenue</th><th></th><th class="num">SSS</th></tr>${league}</table></div>
+      <div class="viz"><h4>Revenue by weekday</h4><p class="vsub">index vs Monday = 1.0</p><div id="rz_dow"></div></div>
+      <div class="viz"><h4>Forecast &amp; detection scorecard</h4><p class="vsub">five success metrics vs target</p>${scRows}</div>
+      <div class="viz"><h4>Live anomalies</h4><p class="vsub">highest-priority, with auto-attributed drivers</p>${anRows}</div>
+    </div>
+    <div class="rptfoot"><span>KFC Vietnam Sales-Forecast Platform · ${d.sm.backend} forecaster · confidential</span><span>${gen}</span></div>
+  </div>`;
+
+  rptArea('rz_trend',d.trend.history||[],d.trend.forecast||[]);
+  $('rz_ch').innerHTML=rptBarsH(chItems);
+  $('rz_dp').innerHTML=rptDonut(dpItems);
+  $('rz_cat').innerHTML=rptBarsH(catItems.map(x=>({...x,pct:null})));
+  $('rz_pt').innerHTML=rptBarsH(pItems);
+  $('rz_dow').innerHTML=rptBarsV(dowItems);
+}
+
+function sparkline(vals){if(!vals||vals.length<2)return'';const w=64,h=22,mx=Math.max(...vals),mn=Math.min(...vals);
+  const X=i=>w*i/(vals.length-1),Y=v=>h-2-(h-4)*((v-mn)/((mx-mn)||1));
+  const p=vals.map((v,i)=>`${i?'L':'M'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+  return `<svg width="${w}" height="${h}"><path d="${p}" fill="none" stroke="${cssv('--accent')}" stroke-width="1.6"/></svg>`;}
+
+function rptBarsH(items,fmt){fmt=fmt||short;const max=Math.max(...items.map(r=>r.value))||1;
+  const rh=30,W=520,pad={l:98,r:62,t:4},bw=W-pad.l-pad.r,H=items.length*rh+6;
+  const g=items.map((r,i)=>{const y=pad.t+i*rh,w=Math.max(bw*r.value/max,2);
+    const tip=(r.label+': '+fmt(r.value)+(r.pct!=null?' · '+r.pct+'%':'')).replace(/'/g,'’');
+    return `<text text-anchor="end" x="${pad.l-8}" y="${y+rh/2+3}" style="fill:var(--muted);font-size:11px">${r.label}</text>
+      <rect x="${pad.l}" y="${y+5}" width="${w}" height="${rh-12}" rx="4" fill="${r.color}" onmousemove="rtipShow(event,'${tip}')" onmouseleave="rtipHide()"/>
+      <text x="${pad.l+w+7}" y="${y+rh/2+3}" style="fill:var(--ink);font-size:11px;font-weight:600">${r.pct!=null?r.pct+'%':short(r.value)}</text>`;}).join('');
+  return `<svg viewBox="0 0 ${W} ${H}">${g}</svg>`;}
+
+function rptDonut(items){const tot=items.reduce((a,r)=>a+r.value,0)||1;const R=80,r0=50,cx=100,cy=100;let a0=-Math.PI/2;
+  const g=items.map(it=>{const frac=it.value/tot,a1=a0+frac*2*Math.PI;
+    const x0=cx+R*Math.cos(a0),y0=cy+R*Math.sin(a0),x1=cx+R*Math.cos(a1),y1=cy+R*Math.sin(a1);
+    const xi0=cx+r0*Math.cos(a1),yi0=cy+r0*Math.sin(a1),xi1=cx+r0*Math.cos(a0),yi1=cy+r0*Math.sin(a0);
+    const lg=frac>0.5?1:0,tip=(it.label+': '+short(it.value)+' · '+Math.round(frac*100)+'%').replace(/'/g,'’');
+    const seg=`<path d="M${x0.toFixed(1)},${y0.toFixed(1)} A${R},${R} 0 ${lg} 1 ${x1.toFixed(1)},${y1.toFixed(1)} L${xi0.toFixed(1)},${yi0.toFixed(1)} A${r0},${r0} 0 ${lg} 0 ${xi1.toFixed(1)},${yi1.toFixed(1)} Z" fill="${it.color}" onmousemove="rtipShow(event,'${tip}')" onmouseleave="rtipHide()"/>`;
+    a0=a1;return seg;}).join('');
+  return `<svg viewBox="0 0 200 200" style="max-width:210px;margin:0 auto">${g}<text x="100" y="97" text-anchor="middle" style="fill:var(--ink);font-size:15px;font-weight:700">${short(tot)}</text><text x="100" y="114" text-anchor="middle" style="fill:var(--muted);font-size:10px">total</text></svg>`;}
+
+function rptBarsV(items){const max=Math.max(...items.map(r=>r.value))*1.1||1;const W=520,H=190,pad={l:20,r:10,t:12,b:26},n=items.length;
+  const bw=(W-pad.l-pad.r)/n*0.58;
+  const g=items.map((r,i)=>{const x=pad.l+(W-pad.l-pad.r)*((i+0.5)/n),bh=(H-pad.t-pad.b)*(r.value/max),y=H-pad.b-bh;
+    const tip=(r.label+': '+r.value.toFixed(2)+'× vs Mon').replace(/'/g,'’');
+    return `<rect x="${(x-bw/2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="3" fill="${r.color}" onmousemove="rtipShow(event,'${tip}')" onmouseleave="rtipHide()"/>
+      <text x="${x.toFixed(1)}" y="${H-9}" text-anchor="middle" style="fill:var(--muted);font-size:10px">${r.label}</text>`;}).join('');
+  return `<svg viewBox="0 0 ${W} ${H}">${g}</svg>`;}
+
+function rptArea(hostId,hist,fc){
+  const s=hist.map(p=>({date:p.date,v:p.net,f:false})).concat(fc.map(p=>({date:p.date,v:p.net,f:true})));
+  const n=s.length,split=hist.length,W=1080,H=280,pad={l:66,r:16,t:14,b:26};
+  if(!n){$(hostId).innerHTML='';return;}
+  const ymax=Math.max(...s.map(p=>p.v))*1.08||1;
+  const X=i=>pad.l+(W-pad.l-pad.r)*(i/(n-1||1)),Y=v=>pad.t+(H-pad.t-pad.b)*(1-v/ymax);
+  RPT.area={s,W,H,pad,n,ymax};
+  const line=(a,b)=>{let d='';for(let i=a;i<=b;i++)d+=(i===a?'M':'L')+X(i).toFixed(1)+','+Y(s[i].v).toFixed(1)+' ';return d.trim();};
+  const histLine=line(0,split-1),fcLine=split<n?('M'+X(split-1).toFixed(1)+','+Y(s[split-1].v).toFixed(1)+' '+line(split,n-1).slice(1)):'';
+  const area=histLine+` L${X(split-1).toFixed(1)},${Y(0).toFixed(1)} L${X(0).toFixed(1)},${Y(0).toFixed(1)} Z`;
+  const yt=[0,ymax/2,ymax].map(v=>`<line x1="${pad.l}" y1="${Y(v).toFixed(1)}" x2="${W-pad.r}" y2="${Y(v).toFixed(1)}" style="stroke:var(--grid)"/><text x="6" y="${(Y(v)+3).toFixed(1)}" style="fill:var(--muted);font-size:10px">${short(v)}</text>`).join('');
+  const xt=s.map((p,i)=>i%Math.ceil(n/7)===0?`<text x="${X(i).toFixed(1)}" y="${H-8}" text-anchor="middle" style="fill:var(--muted);font-size:10px">${String(p.date).slice(5)}</text>`:'').join('');
+  const div=`<line x1="${X(split-1).toFixed(1)}" y1="${pad.t}" x2="${X(split-1).toFixed(1)}" y2="${H-pad.b}" style="stroke:var(--muted);stroke-dasharray:3 3;opacity:.5"/>`;
+  const s1=cssv('--s1'),s3=cssv('--s3');
+  $(hostId).innerHTML=`<svg viewBox="0 0 ${W} ${H}">
+    <defs><linearGradient id="rzg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${s1}" stop-opacity="0.32"/><stop offset="1" stop-color="${s1}" stop-opacity="0"/></linearGradient></defs>
+    ${yt}${xt}${div}
+    <path d="${area}" fill="url(#rzg)"/>
+    <path d="${histLine}" fill="none" stroke="${s1}" stroke-width="2.2"/>
+    ${fcLine?`<path d="${fcLine}" fill="none" stroke="${s3}" stroke-width="2.2" stroke-dasharray="5 4"/>`:''}
+    <circle cx="${X(split-1).toFixed(1)}" cy="${Y(s[split-1].v).toFixed(1)}" r="3.5" fill="${s1}"/>
+    <g id="rptcross" style="display:none"><line y1="${pad.t}" y2="${H-pad.b}" style="stroke:var(--accent);stroke-width:1;opacity:.6"/><circle r="4" fill="${cssv('--accent')}"/></g>
+    <rect x="${pad.l}" y="${pad.t}" width="${W-pad.l-pad.r}" height="${H-pad.t-pad.b}" fill="transparent" onmousemove="rptAreaHover(event)" onmouseleave="rtipHide();var c=$('rptcross');if(c)c.style.display='none'"/>
+  </svg>`;}
+
+function rptAreaHover(ev){const A=RPT.area;if(!A)return;const svg=ev.currentTarget.ownerSVGElement;const rect=svg.getBoundingClientRect();
+  const vbx=(ev.clientX-rect.left)/rect.width*A.W;let i=Math.round((vbx-A.pad.l)/(A.W-A.pad.l-A.pad.r)*(A.n-1));
+  i=Math.max(0,Math.min(A.n-1,i));const X=A.pad.l+(A.W-A.pad.l-A.pad.r)*(i/(A.n-1||1)),Y=A.pad.t+(A.H-A.pad.t-A.pad.b)*(1-A.s[i].v/A.ymax);
+  const cr=$('rptcross');if(cr){cr.style.display='';const ln=cr.querySelector('line');ln.setAttribute('x1',X);ln.setAttribute('x2',X);const cc=cr.querySelector('circle');cc.setAttribute('cx',X);cc.setAttribute('cy',Y);}
+  rtipShow(ev,`<b>${A.s[i].date}</b> · ${short(A.s[i].v)}${A.s[i].f?' · forecast':''}`);}
 
 /* ---------- store detail ---------- */
 async function loadStore(){
@@ -1310,6 +1539,11 @@ alerts:{title:'Alerts — Automated notifications',body:`
 
 reports:{title:'Reports — Ready-made & AI-written summaries',body:`
 <p>The <b>Reports</b> page produces shareable business documents — a daily flash, weekly performance, store league table, forecast accuracy, and more — plus an <b>AI-written executive summary</b> that reads the numbers and explains them in prose.</p>
+<h4>Executive dashboard report</h4>
+<ul>
+<li>Click <b>Open dashboard report</b> for a full-screen, PowerBI-style one-page report: KPI tiles, a revenue trend + forecast, channel &amp; daypart mix, category and store-league performance, delivery partners, the success-metric scorecard, and live anomalies with their drivers.</li>
+<li><b>Hover</b> any chart for exact figures; the revenue chart has a crosshair. Use <b>Print / PDF</b> to save or present it, and <b>Close</b> (or Esc) to return.</li>
+</ul>
 <h4>How to use it</h4>
 <ul>
 <li>Pick a <b>report template</b> from the list (there are 12, each answering a different management question).</li>
@@ -1473,7 +1707,7 @@ document.addEventListener('dragover',e=>{const d=e.target.closest('#drop');if(d)
 document.addEventListener('dragleave',e=>{const d=e.target.closest('#drop');if(d)d.classList.remove('over');});
 document.addEventListener('drop',e=>{const d=e.target.closest('#drop');if(d){e.preventDefault();d.classList.remove('over');[...e.dataTransfer.files].forEach(uploadFile);}});
 
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if($('reportmodal').classList.contains('open'))closeReport();else closeDrawer();}});
 init();
 </script>
 </body>
