@@ -54,6 +54,16 @@ The auth middleware keeps a small **open list** (`/`, `/api/health`, the auth en
 else requires a valid session, and admin‑write routes additionally require the `admin`
 permission.
 
+## Store-node health listener (:8900)
+
+Store-node health agents POST their service status to the listener at
+`http://192.168.50.85:8900/api/monitor/report`. It is an open route (agents are not
+logged-in users) guarded by a node token: agents present `X-Node-Token: <SF_NODE_TOKEN>`
+(or `Authorization: Bearer <SF_NODE_TOKEN>`). Leave `SF_NODE_TOKEN` blank only on a
+trusted, isolated network. The host needs **inbound** :8900 reachable from the store
+subnets for agents to report. Where no agent reports, health is derived server-side and
+correlated with detected anomalies.
+
 ## MCP endpoint on :8901
 
 Agents connect to the MCP server and must present the bearer token configured as

@@ -25,7 +25,7 @@ for built‑in, page‑specific help (what it is, how to read it, how to use it)
 The dashboard hides controls you can't use, and the API enforces the same rules
 server‑side (a `view` user calling a write endpoint is rejected).
 
-## The dashboard (11 pages)
+## The dashboard (12 pages)
 
 ```mermaid
 flowchart TB
@@ -55,6 +55,7 @@ flowchart TB
 | **Forecast** | Pick store × item × daypart. **View** toggles *Forecast (next 14d)* vs *Backtest vs actual* (overlays the real line + accuracy tiles: MAE, MAPE, band coverage, skill‑vs‑naive, bias). |
 | **Stores** | Compare all locations; same‑store‑sales (YoY, like‑for‑like); open any store for detail. |
 | **Anomalies** | Triage detected anomalies by type & council confidence; click one to inspect it in context. |
+| **Store health** | Live per-store node service status (POS, server, network, payment, KDS, printer, DB sync, security). Click a store to inspect services and **remediate** (restart service, fail over, block IP…). Correlated with anomalies; security panel flags password-intrusion. *(remediation: operate)* |
 | **Inventory & Buying** | Buying summary, par levels, reorder list (with ₫ cost), and the thaw/cook prep board. |
 | **Alerts** | Configure channels (email/Teams/Slack) and rules; test; view the notification log. *(operate)* |
 | **Reports** | Generate any of 12 templates; export CSV / print PDF; run the AI executive report. |
@@ -98,6 +99,7 @@ curl -s -b cookies.txt "http://192.168.50.85:8900/api/backtest?horizon=14"
 | Feeds (BI) | `GET /api/feeds/info` · `GET /api/export/{name}.csv` · `GET /odata/…` |
 | Sources | `GET /api/sources` · `POST /api/sources/{connect,sync,upload,promote}` |
 | Ops | `GET/POST /api/settings` · `POST /api/pipeline/run` · `GET /api/pipeline/status` · `GET /api/lineage` |
+| Store health | `GET /api/monitor/fleet` · `GET /api/monitor/store` · `GET /api/monitor/events` · `POST /api/monitor/remediate` (operate) · `POST /api/monitor/report` (agent listener, node-token) |
 
 ## PowerBI / BI feeds
 
