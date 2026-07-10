@@ -17,7 +17,8 @@ api = FastAPI(title="sales-forecast", version="0.1.0")
 DASHBOARD = Path(__file__).resolve().parent.parent / "dashboard" / "index.html"
 
 # --- RBAC: enforce auth + role on every API route (open list bypasses) -------
-_OPEN = {"/", "/api/health", "/api/auth/login", "/api/auth/signup", "/api/auth/me", "/api/auth/logout", "/favicon.ico"}
+_OPEN = {"/", "/api/health", "/api/auth/login", "/api/auth/signup", "/api/auth/me", "/api/auth/logout",
+         "/favicon.ico", "/api/monitor/report"}   # /report is the store-node agent listener (token-guarded)
 _OPEN_PREFIX = ("/assets/", "/odata", "/api/export/")   # read-only BI feeds + static assets
 _ADMIN_WRITE = ("/api/settings", "/api/alerts/config", "/api/report/ai/config")
 
@@ -476,6 +477,45 @@ def metrics_roi():
 def metrics_scorecard():
     from app import metrics
     return metrics.scorecard()
+
+
+# ---- Store-node health monitoring + remediation (/api/monitor/*) ----
+@api.get("/api/monitor/fleet")
+def monitor_fleet():
+    from app import health
+    return health.fleet()
+
+
+@api.get("/api/monitor/store")
+def monitor_store(store: str = Query(...)):
+    from app import health
+    return health.store_detail(store)
+
+
+@api.get("/api/monitor/events")
+def monitor_events(limit: int = 40):
+    from app import health
+    return health.events(int(limit))
+
+
+@api.post("/api/monitor/remediate")
+def monitor_remediate(request: Request, body: dict = Body(...)):
+    from app import health
+    user = getattr(request.state, "user", None)
+    actor = user["username"] if user else "operator"
+    return health.remediate(str(body.get("store", "")), str(body.get("service", "")),
+                            str(body.get("action", "")), actor=actor)
+
+
+@api.post("/api/monitor/report")
+def monitor_report(request: Request, body: dict = Body(...)):
+    # Store-node agent listener. Token-guarded (open route); accepts a service-status batch.
+    if CFG.NODE_TOKEN:
+        tok = request.headers.get("x-node-token") or request.headers.get("authorization", "").replace("Bearer ", "")
+        if tok != CFG.NODE_TOKEN:
+            return JSONResponse({"error": "invalid node token"}, status_code=401)
+    from app import health
+    return health.report(body)
 
 
 @api.get("/api/forecast/hindcast")

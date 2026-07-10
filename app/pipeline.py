@@ -74,6 +74,11 @@ def run_all() -> dict:
         results[name] = STAGES[name]()
         results[name]["_seconds"] = round(time.time() - t0, 1)
         print(json.dumps(results[name], indent=2, default=str))
+    try:
+        from app import health
+        results["health"] = health.refresh()   # seed store-node health (correlates with anomalies)
+    except Exception as e:
+        results["health"] = {"error": str(e)}
     return results
 
 

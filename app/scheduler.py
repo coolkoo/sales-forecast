@@ -53,6 +53,11 @@ def run_once() -> dict:
     try:
         res = detect.run()
         n = int(res.get("detected", 0))
+        try:
+            from app import health
+            health.refresh()     # refresh store-node health each cycle (correlates with anomalies)
+        except Exception:
+            pass
         _heartbeat("ok", n, int(time.time() - t0))
         return {"ok": True, "detected": n}
     except Exception as e:

@@ -71,6 +71,7 @@ class Config:
     API_PORT = int(os.environ.get("SF_API_PORT", "8900"))
     MCP_PORT = int(os.environ.get("SF_MCP_PORT", "8901"))
     MCP_TOKEN = os.environ.get("SF_MCP_TOKEN", "")     # bearer token for the MCP endpoint (set on server)
+    NODE_TOKEN = os.environ.get("SF_NODE_TOKEN", "")   # token store-node health agents present to /api/monitor/report (empty = accept)
 
     def is_sqlite(self) -> bool:
         return self.DATABASE_URL.startswith("sqlite")

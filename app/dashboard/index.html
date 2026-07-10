@@ -230,6 +230,27 @@
   .chip{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:20px;vertical-align:middle}
   .chip.up{background:rgba(12,163,12,.16);color:var(--good)}
   .chip.down{background:rgba(224,87,87,.16);color:var(--critical)}
+  /* store health monitor */
+  .hgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:13px}
+  .hcard{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:0;overflow:hidden;cursor:pointer;transition:border-color .12s}
+  .hcard:hover{border-color:var(--accent)}
+  .hcard .hstripe{height:4px}
+  .hcard .hbody{padding:12px 14px}
+  .hcard .htop{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .hcard .hstore{font-weight:680;font-size:13.5px}
+  .hbadge{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:2px 8px;border-radius:20px}
+  .hcard .hissue{font-size:11.5px;color:var(--muted);margin:6px 0 9px;min-height:16px}
+  .hsvcs{display:flex;flex-wrap:wrap;gap:5px}
+  .hsvc{width:23px;height:23px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;border:1px solid var(--line)}
+  .st-ok{background:rgba(12,163,12,.15);color:var(--good)} .stripe-ok{background:var(--good)} .badge-ok{background:rgba(12,163,12,.16);color:var(--good)}
+  .st-warn{background:rgba(250,178,25,.17);color:var(--warn)} .stripe-warn{background:var(--warn)} .badge-warn{background:rgba(250,178,25,.18);color:var(--warn)}
+  .st-critical,.st-down{background:rgba(224,87,87,.16);color:var(--critical)} .stripe-critical,.stripe-down{background:var(--critical)} .badge-critical,.badge-down{background:rgba(224,87,87,.16);color:var(--critical)}
+  .hsvcrow{display:flex;align-items:center;gap:11px;padding:11px 2px;border-bottom:1px solid var(--grid)}
+  .hsvcrow:last-child{border-bottom:none}
+  .hsvcrow .hic{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;flex:none}
+  .hsvcrow .hnm{font-size:13px;font-weight:600}.hsvcrow .hdt{font-size:11.5px;color:var(--muted);margin-top:1px}
+  .hlogrow{display:flex;gap:9px;font-size:12px;padding:7px 2px;border-bottom:1px solid var(--grid)}
+  .hlogrow:last-child{border-bottom:none}
   .rptgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   .rptgrid .span2{grid-column:1 / -1}
   @media(max-width:820px){.rptgrid{grid-template-columns:1fr}}
@@ -292,6 +313,7 @@
     <button class="navitem" data-tab="stores" onclick="showTab('stores')"><svg viewBox="0 0 24 24"><path d="M4 9h16l-1-5H5L4 9z"/><path d="M5 9v11h14V9"/><path d="M9 20v-6h6v6"/></svg> Stores</button>
     <button class="navitem" data-tab="anomalies" onclick="showTab('anomalies')"><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> Anomalies</button>
     <div class="navgroup">Operations</div>
+    <button class="navitem" data-tab="monitor" onclick="showTab('monitor')"><svg viewBox="0 0 24 24"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg> Store health</button>
     <button class="navitem" data-tab="inventory" onclick="showTab('inventory')"><svg viewBox="0 0 24 24"><path d="M21 8 12 3 3 8l9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg> Inventory</button>
     <button class="navitem" data-tab="alerts" onclick="showTab('alerts')"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg> Alerts</button>
     <div class="navgroup">Data &amp; reports</div>
@@ -371,6 +393,17 @@
     <div class="tiles" id="anomtiles"></div>
     <div class="card"><h3>Filter by type</h3><div id="anomfilter" style="display:flex;gap:6px;flex-wrap:wrap"></div></div>
     <div class="card"><h3>All anomalies <span class="hint">· click a row to inspect</span></h3><div class="scroll"><table id="anomall"></table></div></div>
+  </section>
+
+  <section id="tab-monitor" hidden>
+    <h2 class="sec">Store health monitor <span class="hint" style="text-transform:none;letter-spacing:0;font-weight:500">· live service status from store nodes · click a store to inspect &amp; remediate</span></h2>
+    <div class="tiles" id="montiles"></div>
+    <div class="card"><h3>Store fleet <span class="hint">· click a store to inspect services &amp; remediate</span> <button class="btn ghost" style="float:right;padding:5px 11px" onclick="loadMonitorPage(true)">↻ Refresh</button></h3>
+      <div id="monfleet"><p class="muted">Loading…</p></div></div>
+    <div class="grid">
+      <div class="card"><h3>🛡️ Security &amp; access alerts</h3><p class="sub">Intrusion / failed-login signals across the fleet</p><div id="monsec"></div></div>
+      <div class="card"><h3>🛠️ Remediation &amp; event log</h3><p class="sub">Recent status changes, agent reports, and operator actions</p><div id="monlog"></div></div>
+    </div>
   </section>
 
   <section id="tab-inventory" hidden>
@@ -875,6 +908,52 @@ function rptAreaHover(ev){const A=RPT.area;if(!A)return;const svg=ev.currentTarg
   const cr=$('rptcross');if(cr){cr.style.display='';const ln=cr.querySelector('line');ln.setAttribute('x1',X);ln.setAttribute('x2',X);const cc=cr.querySelector('circle');cc.setAttribute('cx',X);cc.setAttribute('cy',Y);}
   rtipShow(ev,`<b>${A.s[i].date}</b> · ${short(A.s[i].v)}${A.s[i].f?' · forecast':''}`);}
 
+/* ================= Store health monitor ================= */
+const HSVC_ICON={pos:'🧾',host:'🖥️',network:'🌐',payment:'💳',kds:'👨‍🍳',printer:'🖨️',backup:'💾',security:'🛡️'};
+const HLABEL={ok:'Healthy',warn:'Degraded',critical:'Critical',down:'Down',offline:'Offline'};
+const hcls=s=>(s==='down'||s==='offline')?'down':s;
+async function loadMonitorPage(force){
+  const f=await get('/api/monitor/fleet'+(force?('?_='+Date.now()):''));
+  const s=f.summary;
+  $('montiles').innerHTML=[
+    ['Stores healthy',s.healthy+' / '+s.stores,'all services ok'],
+    ['Degraded',s.degraded,'warnings'],['Critical',s.critical,'need attention'],
+    ['Services down',s.services_down,'across fleet'],['Security alerts',s.security_alerts,'intrusion / access'],
+  ].map(([k,v,sub])=>`<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${sub}</div></div>`).join('');
+  $('monfleet').innerHTML='<div class="hgrid">'+f.stores.map(st=>{const cls=hcls(st.overall);
+    const svcs=st.services.map(sv=>`<span class="hsvc st-${hcls(sv.status)}" title="${sv.service}: ${sv.status}">${HSVC_ICON[sv.service]||'•'}</span>`).join('');
+    return `<div class="hcard" onclick="openStoreHealth('${st.store}')"><div class="hstripe stripe-${cls}"></div>
+      <div class="hbody"><div class="htop"><span class="hstore">${st.store}</span><span class="hbadge badge-${cls}">${HLABEL[st.overall]||st.overall}</span></div>
+      <div class="hissue">${st.top_issue}</div><div class="hsvcs">${svcs}</div></div></div>`;}).join('')+'</div>';
+  const sec=f.stores.filter(x=>x.security&&x.security.status!=='ok')
+    .sort((a,b)=>({critical:2,warn:1}[b.security.status]||0)-({critical:2,warn:1}[a.security.status]||0));
+  $('monsec').innerHTML=sec.length?sec.map(x=>`<div class="hsvcrow" style="cursor:pointer" onclick="openStoreHealth('${x.store}')"><span class="hic st-${hcls(x.security.status)}">🛡️</span><div><div class="hnm">${x.store} <span class="hbadge badge-${hcls(x.security.status)}">${x.security.status}</span></div><div class="hdt">${x.security.detail}</div></div></div>`).join(''):'<p class="muted" style="font-size:12px">No security alerts — all clear.</p>';
+  const ev=await get('/api/monitor/events?limit=25');
+  $('monlog').innerHTML=ev.length?ev.map(e=>{const ic=e.kind==='remediation'?'🛠️':e.kind==='report'?'📡':'•';
+    return `<div class="hlogrow"><span>${ic}</span><div><b>${e.store}</b> · ${e.service} — ${e.action?e.action.replace(/_/g,' '):e.kind} <span style="color:var(--muted)">${e.note||''}</span><div style="color:var(--muted);font-size:11px">${String(e.ts).slice(0,16).replace('T',' ')} · ${e.actor}</div></div></div>`;}).join(''):'<p class="muted" style="font-size:12px">No events yet.</p>';
+}
+async function openStoreHealth(store){
+  openDrawer('🖥️ '+store+' · store health');$('dbody').innerHTML='<p class="muted">Loading…</p>';
+  renderStoreHealth(store,await get('/api/monitor/store?store='+encodeURIComponent(store)));
+}
+function renderStoreHealth(store,d){
+  const canOp=USER&&USER.permissions&&USER.permissions.includes('operate');const ov=hcls(d.overall);
+  let html=`<div style="margin-bottom:12px"><span class="hbadge badge-${ov}">${HLABEL[d.overall]||d.overall}</span> <span class="muted" style="font-size:12px">overall status</span></div>`;
+  html+=d.services.map(sv=>{const c=hcls(sv.status);
+    const acts=(sv.actions&&sv.actions.length)?(canOp?`<div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap">`+sv.actions.map(a=>`<button class="btn ghost" style="padding:5px 10px;font-size:12px" onclick="doRemediate('${store}','${sv.key}','${a.id}')">${a.label}</button>`).join('')+`</div>`:`<div class="sub" style="margin-top:5px">Remediation requires the operate role</div>`):'';
+    return `<div class="hsvcrow"><span class="hic st-${c}">${sv.icon}</span><div style="flex:1"><div class="hnm">${sv.name} <span class="hbadge badge-${c}" style="margin-left:4px">${sv.status}</span></div><div class="hdt">${sv.detail}</div>${acts}</div></div>`;}).join('');
+  if(d.events&&d.events.length){html+=`<h4 style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:15px 0 4px">Recent events</h4>`+d.events.slice(0,8).map(e=>`<div class="hlogrow"><span>${e.kind==='remediation'?'🛠️':e.kind==='report'?'📡':'•'}</span><div>${e.service} — ${e.action?e.action.replace(/_/g,' '):e.kind} <span style="color:var(--muted)">${e.note||''}</span><div style="color:var(--muted);font-size:11px">${String(e.ts).slice(0,16).replace('T',' ')} · ${e.actor}</div></div></div>`).join('');}
+  $('dbody').innerHTML=html;
+}
+async function doRemediate(store,service,action){
+  const r=await(await fetch('/api/monitor/remediate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({store,service,action})})).json();
+  renderStoreHealth(store,await get('/api/monitor/store?store='+encodeURIComponent(store)));
+  const note=document.createElement('div');note.className='note';note.style.marginBottom='10px';
+  note.textContent=r.error?('⚠ '+r.error):('✓ '+(r.result||'Remediation applied'));
+  $('dbody').prepend(note);
+  loadMonitorPage();
+}
+
 /* ---------- store detail ---------- */
 async function loadStore(){
   bandChart(await get('/api/forecast/store_daily?store='+STORE));
@@ -1346,8 +1425,8 @@ async function saveAICfg(){
 
 /* ---------- sources tab ---------- */
 let SRC={};
-const TABS=['dashboard','ask','forecast','stores','anomalies','inventory','alerts','reports','data','sources','settings'];
-const TITLES={dashboard:'Dashboard',ask:'Ask the data',forecast:'Forecast',stores:'Stores',anomalies:'Anomalies',inventory:'Inventory & Buying',alerts:'Alerts',reports:'Reports',data:'Data lineage',sources:'Sources',settings:'Settings'};
+const TABS=['dashboard','ask','forecast','stores','anomalies','monitor','inventory','alerts','reports','data','sources','settings'];
+const TITLES={dashboard:'Dashboard',ask:'Ask the data',forecast:'Forecast',stores:'Stores',anomalies:'Anomalies',monitor:'Store health',inventory:'Inventory & Buying',alerts:'Alerts',reports:'Reports',data:'Data lineage',sources:'Sources',settings:'Settings'};
 let CURTAB='dashboard';
 function showTab(t){
   CURTAB=t;
@@ -1357,6 +1436,7 @@ function showTab(t){
   if(t==='sources') loadSources();
   if(t==='stores') loadStoresPage();
   if(t==='anomalies') loadAnomaliesPage();
+  if(t==='monitor') loadMonitorPage();
   if(t==='inventory') loadInventoryPage();
   if(t==='forecast') loadForecastPage();
   if(t==='settings') loadSettingsPage();
@@ -1492,6 +1572,27 @@ anomalies:{title:'Anomalies — What looks wrong, and why',body:`
 <li><b>Council</b> — a panel of independent checks that must agree before an anomaly is treated as confident.</li>
 </ul>
 <div class="tip"><b>Tip:</b> Sort by confidence and work top-down. A high-confidence "fraud" or "outage" is worth a same-day call to the store.</div>`},
+
+monitor:{title:'Store health — Monitor & remediate store nodes',body:`
+<p>The <b>Store health</b> page shows the live status of the services running at each store's node — POS, back-office server, network, payment gateway, kitchen display, receipt printer, DB sync, and security — and lets you <b>remediate</b> the things that can be fixed remotely.</p>
+<h4>How it works</h4>
+<ul>
+<li>Each store node reports its service status to the platform (the <b>listener</b> at <code>/api/monitor/report</code>). Where a live agent hasn't reported, status is derived and <b>correlated with detected anomalies</b> — e.g. a POS outage anomaly shows POS as <b>down</b>, a delivery/app channel outage shows the network/payment as degraded, and void/comp fraud raises a security alert.</li>
+<li>Status levels: <span class="k">Healthy</span> · <b>Degraded</b> (warning) · <b>Critical / Down</b> (needs attention). A store's overall badge is its worst service.</li>
+</ul>
+<h4>How to read it</h4>
+<ul>
+<li><b>Top tiles</b>: fleet rollup — stores healthy / degraded / critical, services down, and open security alerts.</li>
+<li><b>Store fleet</b>: one card per store with a status stripe, overall badge, the top issue, and a row of 8 service icons colored by status. <b>Click a card</b> to open the full per-service detail.</li>
+<li><b>Security &amp; access</b>: stores with intrusion or failed-login signals (e.g. "17 failed admin logins from a single IP — possible password intrusion").</li>
+<li><b>Event log</b>: recent status changes, agent reports (📡), and operator remediations (🛠️).</li>
+</ul>
+<h4>How to remediate</h4>
+<ul>
+<li>Open a store, find the degraded service, and click a remediation action — e.g. <b>Restart POS service</b>, <b>Fail over to LTE</b>, <b>Reconnect gateway</b>, <b>Restart print spooler</b>, or (for security) <b>Block source IP</b> / <b>Force-logout</b> / <b>Rotate credentials</b>.</li>
+<li>The action resolves the service, is written to the audit log, and stays resolved (it won't be re-flagged for 24h). Healthy services have no actions.</li>
+</ul>
+<div class="tip"><b>Note:</b> Remediation requires the <b>operate</b> role (manager/admin); analysts and viewers see status read-only. Real store agents authenticate to the listener with a node token (<code>SF_NODE_TOKEN</code>).</div>`},
 
 inventory:{title:'Inventory & Buying — What to order',body:`
 <p>This page turns the demand forecast into <b>purchasing guidance</b>: how much of each ingredient to buy, when to reorder, and what to thaw. It bridges "we'll sell X chicken" to "so order Y kg".</p>
