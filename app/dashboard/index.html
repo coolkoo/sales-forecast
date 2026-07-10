@@ -246,6 +246,10 @@
   .st-warn{background:rgba(250,178,25,.17);color:var(--warn)} .stripe-warn{background:var(--warn)} .badge-warn{background:rgba(250,178,25,.18);color:var(--warn)}
   .st-critical,.st-down{background:rgba(224,87,87,.16);color:var(--critical)} .stripe-critical,.stripe-down{background:var(--critical)} .badge-critical,.badge-down{background:rgba(224,87,87,.16);color:var(--critical)}
   .st-remediating{background:rgba(91,155,255,.16);color:var(--accent)} .stripe-remediating{background:var(--accent)} .badge-remediating{background:rgba(91,155,255,.16);color:var(--accent)}
+  /* service icons: monochrome line-art (match nav); muted when healthy, red on any issue */
+  .hi-ok{color:var(--muted)} .hi-warn,.hi-critical,.hi-down{color:var(--critical)} .hi-remediating{color:var(--accent)}
+  .hsvc{background:none} .hsvc svg{width:15px;height:15px;display:block} .hsvc svg *{vector-effect:non-scaling-stroke}
+  .hsvcrow .hic{background:var(--panel2)} .hsvcrow .hic svg{width:19px;height:19px;display:block}
   .hsvcrow{display:flex;align-items:center;gap:11px;padding:11px 2px;border-bottom:1px solid var(--grid)}
   .hsvcrow:last-child{border-bottom:none}
   .hsvcrow .hic{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;flex:none}
@@ -402,8 +406,8 @@
     <div class="card"><h3>Store fleet <span class="hint">· click a store to inspect services &amp; remediate</span> <button class="btn ghost" style="float:right;padding:5px 11px" onclick="loadMonitorPage(true)">↻ Refresh</button></h3>
       <div id="monfleet"><p class="muted">Loading…</p></div></div>
     <div class="grid">
-      <div class="card"><h3>🛡️ Security &amp; access alerts</h3><p class="sub">Intrusion / failed-login signals across the fleet</p><div id="monsec"></div></div>
-      <div class="card"><h3>🛠️ Remediation &amp; event log</h3><p class="sub">Recent status changes, agent reports, and operator actions</p><div id="monlog"></div></div>
+      <div class="card"><h3>Security &amp; access alerts</h3><p class="sub">Intrusion / failed-login signals across the fleet</p><div id="monsec"></div></div>
+      <div class="card"><h3>Remediation &amp; event log</h3><p class="sub">Recent status changes, agent reports, and operator actions</p><div id="monlog"></div></div>
     </div>
   </section>
 
@@ -910,8 +914,18 @@ function rptAreaHover(ev){const A=RPT.area;if(!A)return;const svg=ev.currentTarg
   rtipShow(ev,`<b>${A.s[i].date}</b> · ${short(A.s[i].v)}${A.s[i].f?' · forecast':''}`);}
 
 /* ================= Store health monitor ================= */
-const HSVC_ICON={pos:'🧾',host:'🖥️',network:'🌐',payment:'💳',kds:'👨‍🍳',printer:'🖨️',backup:'💾',security:'🛡️'};
+const HSVG_PATHS={
+  pos:'<rect x="4" y="8" width="16" height="12" rx="1.5"/><path d="M7 8V5h10v3M8 12h8M8 16h4"/>',
+  host:'<rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/>',
+  network:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.7 2.6 15.3 0 18M12 3c-2.6 2.7-2.6 15.3 0 18"/>',
+  payment:'<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>',
+  kds:'<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4M8 8h8M8 11h5"/>',
+  printer:'<path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="1.5"/><path d="M7 17h10v4H7z"/><path d="M17 12h.01"/>',
+  backup:'<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
+  security:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>'};
+const HSVG=k=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${HSVG_PATHS[k]||''}</svg>`;
 const HLABEL={ok:'Healthy',remediating:'Remediating…',warn:'Degraded',critical:'Critical',down:'Down',offline:'Offline'};
+const hdot=st=>`<span class="andot" style="background:${st==='failed'?'var(--critical)':'var(--muted)'}"></span>`;
 const hcls=s=>(s==='down'||s==='offline')?'down':s;
 async function loadMonitorPage(force){
   const f=await get('/api/monitor/fleet'+(force?('?_='+Date.now()):''));
@@ -922,19 +936,19 @@ async function loadMonitorPage(force){
     ['Services down',s.services_down,'across fleet'],['Security alerts',s.security_alerts,'intrusion / access'],
   ].map(([k,v,sub])=>`<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${sub}</div></div>`).join('');
   $('monfleet').innerHTML='<div class="hgrid">'+f.stores.map(st=>{const cls=hcls(st.overall);
-    const svcs=st.services.map(sv=>`<span class="hsvc st-${hcls(sv.status)}" title="${sv.service}: ${sv.status}">${HSVC_ICON[sv.service]||'•'}</span>`).join('');
+    const svcs=st.services.map(sv=>`<span class="hsvc hi-${hcls(sv.status)}" title="${sv.service}: ${sv.status}">${HSVG(sv.service)}</span>`).join('');
     return `<div class="hcard" onclick="openStoreHealth('${st.store}')"><div class="hstripe stripe-${cls}"></div>
       <div class="hbody"><div class="htop"><span class="hstore">${st.store}</span><span class="hbadge badge-${cls}">${HLABEL[st.overall]||st.overall}</span></div>
       <div class="hissue">${st.top_issue}</div><div class="hsvcs">${svcs}</div></div></div>`;}).join('')+'</div>';
   const sec=f.stores.filter(x=>x.security&&x.security.status!=='ok')
     .sort((a,b)=>({critical:2,warn:1}[b.security.status]||0)-({critical:2,warn:1}[a.security.status]||0));
-  $('monsec').innerHTML=sec.length?sec.map(x=>`<div class="hsvcrow" style="cursor:pointer" onclick="openStoreHealth('${x.store}')"><span class="hic st-${hcls(x.security.status)}">🛡️</span><div><div class="hnm">${x.store} <span class="hbadge badge-${hcls(x.security.status)}">${x.security.status}</span></div><div class="hdt">${x.security.detail}</div></div></div>`).join(''):'<p class="muted" style="font-size:12px">No security alerts — all clear.</p>';
+  $('monsec').innerHTML=sec.length?sec.map(x=>`<div class="hsvcrow" style="cursor:pointer" onclick="openStoreHealth('${x.store}')"><span class="hic hi-${hcls(x.security.status)}">${HSVG('security')}</span><div><div class="hnm">${x.store} <span class="hbadge badge-${hcls(x.security.status)}">${x.security.status}</span></div><div class="hdt">${x.security.detail}</div></div></div>`).join(''):'<p class="muted" style="font-size:12px">No security alerts — all clear.</p>';
   const ev=await get('/api/monitor/events?limit=25');
-  $('monlog').innerHTML=ev.length?ev.map(e=>{const ic=e.kind==='remediation'?'🛠️':e.kind==='report'?'📡':'•';
-    return `<div class="hlogrow"><span>${ic}</span><div><b>${e.store}</b> · ${e.service} — ${e.action?e.action.replace(/_/g,' '):e.kind} <span style="color:var(--muted)">${e.note||''}</span><div style="color:var(--muted);font-size:11px">${String(e.ts).slice(0,16).replace('T',' ')} · ${e.actor}</div></div></div>`;}).join(''):'<p class="muted" style="font-size:12px">No events yet.</p>';
+  $('monlog').innerHTML=ev.length?ev.map(e=>
+    `<div class="hlogrow">${hdot(e.status)}<div><b>${e.store}</b> · ${e.service} — ${e.action?e.action.replace(/_/g,' '):e.kind} <span style="color:var(--muted)">${e.note||''}</span><div style="color:var(--muted);font-size:11px">${String(e.ts).slice(0,16).replace('T',' ')} · ${e.actor}</div></div></div>`).join(''):'<p class="muted" style="font-size:12px">No events yet.</p>';
 }
 async function openStoreHealth(store){
-  openDrawer('🖥️ '+store+' · store health');$('dbody').innerHTML='<p class="muted">Loading…</p>';
+  openDrawer(store+' · store health');$('dbody').innerHTML='<p class="muted">Loading…</p>';
   renderStoreHealth(store,await get('/api/monitor/store?store='+encodeURIComponent(store)));
 }
 function renderStoreHealth(store,d){
@@ -942,8 +956,8 @@ function renderStoreHealth(store,d){
   let html=`<div style="margin-bottom:12px"><span class="hbadge badge-${ov}">${HLABEL[d.overall]||d.overall}</span> <span class="muted" style="font-size:12px">overall status</span></div>`;
   html+=d.services.map(sv=>{const c=hcls(sv.status);
     const acts=(sv.actions&&sv.actions.length)?(canOp?`<div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap">`+sv.actions.map(a=>`<button class="btn ghost" style="padding:5px 10px;font-size:12px" onclick="doRemediate('${store}','${sv.key}','${a.id}')">${a.label}</button>`).join('')+`</div>`:`<div class="sub" style="margin-top:5px">Remediation requires the operate role</div>`):'';
-    return `<div class="hsvcrow"><span class="hic st-${c}">${sv.icon}</span><div style="flex:1"><div class="hnm">${sv.name} <span class="hbadge badge-${c}" style="margin-left:4px">${sv.status}</span></div><div class="hdt">${sv.detail}</div>${acts}</div></div>`;}).join('');
-  if(d.events&&d.events.length){html+=`<h4 style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:15px 0 4px">Recent events</h4>`+d.events.slice(0,8).map(e=>`<div class="hlogrow"><span>${e.kind==='remediation'?'🛠️':e.kind==='report'?'📡':'•'}</span><div>${e.service} — ${e.action?e.action.replace(/_/g,' '):e.kind} <span style="color:var(--muted)">${e.note||''}</span><div style="color:var(--muted);font-size:11px">${String(e.ts).slice(0,16).replace('T',' ')} · ${e.actor}</div></div></div>`).join('');}
+    return `<div class="hsvcrow"><span class="hic hi-${c}">${HSVG(sv.key)}</span><div style="flex:1"><div class="hnm">${sv.name} <span class="hbadge badge-${c}" style="margin-left:4px">${sv.status}</span></div><div class="hdt">${sv.detail}</div>${acts}</div></div>`;}).join('');
+  if(d.events&&d.events.length){html+=`<h4 style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:15px 0 4px">Recent events</h4>`+d.events.slice(0,8).map(e=>`<div class="hlogrow">${hdot(e.status)}<div>${e.service} — ${e.action?e.action.replace(/_/g,' '):e.kind} <span style="color:var(--muted)">${e.note||''}</span><div style="color:var(--muted);font-size:11px">${String(e.ts).slice(0,16).replace('T',' ')} · ${e.actor}</div></div></div>`).join('');}
   $('dbody').innerHTML=html;
 }
 async function doRemediate(store,service,action){
