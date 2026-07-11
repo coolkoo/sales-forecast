@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  font-family: Arial, sans-serif; display: flex; position: relative;
+  background: #FFFFFF; overflow: hidden;
+}
+.header { position: absolute; top: 28pt; left: 48pt; right: 48pt; }
+.action-title { font-family: Arial, sans-serif; font-size: 13pt; font-weight: 700; color: #1A1A1A; margin: 0 0 3pt 0; line-height: 1.3; }
+.header-line { width: 36pt; height: 3pt; background: #004D43; margin: 6pt 0 0 0; }
+
+.left-col { position: absolute; top: 80pt; left: 48pt; width: 320pt; }
+.feature-group { margin-bottom: 14pt; }
+.feature-group:last-child { margin-bottom: 0; }
+.feature-title { font-family: Arial, sans-serif; font-size: 10pt; font-weight: 700; color: #004D43; margin-bottom: 3pt; }
+.feature-desc { font-family: Arial, sans-serif; font-size: 8pt; color: #555; line-height: 1.35; }
+.feature-tag { display: inline-block; font-size: 6.5pt; background: #E8F0EE; color: #004D43; padding: 1pt 4pt; border-radius: 2pt; font-weight: 700; margin-top: 2pt; }
+
+.right-col { position: absolute; top: 80pt; right: 48pt; width: 290pt; }
+.role-table { width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; }
+.role-table th { text-align: left; font-size: 7pt; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.6pt; padding: 6pt 10pt; border-bottom: 1px solid #D0D0D0; }
+.role-table td { font-size: 8pt; color: #333; padding: 7pt 10pt; border-bottom: 1px solid #EEEEEE; }
+.role-table td:first-child { font-weight: 700; color: #004D43; }
+.role-table tr:last-child td { border-bottom: none; }
+.role-note { margin-top: 8pt; font-family: Arial, sans-serif; font-size: 7pt; color: #888; line-height: 1.4; }
+
+.deploy-box { position: absolute; bottom: 55pt; left: 48pt; right: 48pt; background: #F7F8F9; padding: 10pt 14pt; display: flex; justify-content: space-between; align-items: center; }
+.deploy-item { font-family: Arial, sans-serif; font-size: 8pt; color: #555; }
+.deploy-item b { color: #1A1A1A; }
+
+.footer-note { position: absolute; bottom: 18pt; left: 48pt; right: 48pt; font-family: Arial, sans-serif; font-size: 7pt; color: #AAAAAA; }
+</style></head><body>
+<div class="header">
+  <p class="action-title">The platform runs on existing on-premise hardware alongside production systems, with no new cloud spend and full role-based data governance</p>
+  <div class="header-line"></div>
+</div>
+
+<div class="left-col">
+  <div class="feature-group">
+    <div class="feature-title">On-premise deployment</div>
+    <div class="feature-desc">Docker Compose stack on an idle GPU (A2) at 192.168.50.85 &mdash; no new cloud spend, no contention with production workloads.</div>
+    <div class="feature-tag">Isolated &amp; safe</div>
+  </div>
+  <div class="feature-group">
+    <div class="feature-title">One-command deploy</div>
+    <div class="feature-desc">Same codebase runs on a laptop (SQLite + fallback models) or the server (Postgres + Chronos-2 GPU). Single <code>deploy.sh</code> gets you live.</div>
+    <div class="feature-tag">Env-switched</div>
+  </div>
+  <div class="feature-group">
+    <div class="feature-title">Security model</div>
+    <div class="feature-desc">PBKDF2-hashed passwords, short-lived session cookies, pending-approval signups, guarded actions requiring confirmation for all writes. TLS-ready for LAN-external access.</div>
+    <div class="feature-tag">Enterprise-grade</div>
+  </div>
+</div>
+
+<div class="right-col">
+  <div style="font-family:Arial,sans-serif;font-size:8pt;font-weight:700;color:#333;margin-bottom:6pt;text-transform:uppercase;letter-spacing:0.5pt;">Role-based access control</div>
+  <table class="role-table">
+    <tr><th style="width:25%">Role</th><th style="width:75%">Capabilities</th></tr>
+    <tr><td>Admin</td><td>Full system access, user management, settings</td></tr>
+    <tr><td>Manager</td><td>View all + approve reorders, run pipeline</td></tr>
+    <tr><td>Analyst</td><td>View all data, create reports, query</td></tr>
+    <tr><td>Viewer</td><td>Read-only dashboard and report access</td></tr>
+  </table>
+  <div class="role-note"><b>Audit trail:</b> Every guarded action is logged with timestamp and user ID. No silent writes.</div>
+</div>
+
+<div class="deploy-box">
+  <div class="deploy-item"><b>Stack:</b> App container + Postgres + Chronos-2 GPU</div>
+  <div class="deploy-item"><b>Deploy:</b> Docker Compose / <code>deploy.sh</code></div>
+  <div class="deploy-item"><b>Host:</b> 192.168.50.85 (on-prem)</div>
+</div>
+
+<div class="footer-note">Source: Platform infrastructure and security architecture documentation</div>
+</body></html>

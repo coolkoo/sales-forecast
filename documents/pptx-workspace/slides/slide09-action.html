@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  font-family: Arial, sans-serif; display: flex; position: relative;
+  background: #FFFFFF; overflow: hidden;
+}
+.header { position: absolute; top: 28pt; left: 48pt; right: 48pt; }
+.action-title { font-family: Arial, sans-serif; font-size: 13pt; font-weight: 700; color: #1A1A1A; margin: 0 0 3pt 0; line-height: 1.3; }
+.header-line { width: 36pt; height: 3pt; background: #004D43; margin: 6pt 0 0 0; }
+.sub-header { position: absolute; top: 72pt; left: 48pt; font-family: Arial, sans-serif; font-size: 10pt; color: #666; width: 500pt; line-height: 1.35; }
+
+.columns { position: absolute; top: 105pt; left: 48pt; right: 48pt; display: flex; gap: 14pt; }
+.col { flex: 1; }
+.lane-card { background: #F7F8F9; padding: 12pt; margin-bottom: 8pt; border-left: 3px solid #004D43; }
+.lane-card.alert { border-left-color: #C0392B; }
+.lane-card.buy { border-left-color: #D4A84B; }
+.lane-card.prep { border-left-color: #007A6B; }
+.lane-card.agent { border-left-color: #004D43; }
+.lane-title { font-family: Arial, sans-serif; font-size: 9pt; font-weight: 700; color: #1A1A1A; margin-bottom: 2pt; }
+.lane-desc { font-family: Arial, sans-serif; font-size: 7.5pt; color: #555; line-height: 1.35; }
+.lane-tag { display: inline-block; font-size: 6.5pt; background: #E8F0EE; color: #004D43; padding: 1pt 4pt; border-radius: 2pt; font-weight: 700; margin-top: 2pt; }
+.lane-card.alert .lane-tag { background: #FFF3F0; color: #C0392B; }
+.lane-card.buy .lane-tag { background: #F7F0E8; color: #997929; }
+.lane-card.prep .lane-tag { background: #E8F0EE; color: #007A6B; }
+
+.divider-line { width: 100%; height: 1px; background: #E0E0E0; margin: 4pt 0; }
+
+.footer-note { position: absolute; bottom: 18pt; left: 48pt; right: 48pt; font-family: Arial, sans-serif; font-size: 7pt; color: #AAAAAA; }
+</style></head><body>
+<div class="header">
+  <p class="action-title">The platform closes the loop from detection to action, routing alerts and generating purchasing plans so the right person responds on the same shift</p>
+  <div class="header-line"></div>
+</div>
+
+<div class="sub-header">Detecting faster only matters if the right person acts. The platform delivers four integrated action pathways.</div>
+
+<div class="columns">
+  <div class="col">
+    <div class="lane-card alert">
+      <div class="lane-title">Automated alerts</div>
+      <div class="lane-desc">Rule-based routing by severity to email, Microsoft Teams, and Slack &mdash; no one monitors a dashboard</div>
+      <div class="lane-tag">Same-shift response</div>
+    </div>
+    <div class="lane-card buy">
+      <div class="lane-title">Buying plans</div>
+      <div class="lane-desc">Par levels, reorder points, and suggested order quantities denominated in VND, updated each forecast cycle</div>
+      <div class="lane-tag">Inventory optimization</div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="lane-card prep">
+      <div class="lane-title">Prep plans</div>
+      <div class="lane-desc">Thaw and cook lead-time board so stores are ready for forecast demand &mdash; reduces waste and stockouts</div>
+      <div class="lane-tag">Waste reduction</div>
+    </div>
+    <div class="lane-card agent">
+      <div class="lane-title">Agent-ready (MCP)</div>
+      <div class="lane-desc">AI agents can query forecasts, acknowledge alerts, and approve reorders with confirmation + audit trail</div>
+      <div class="lane-tag">Future capability</div>
+    </div>
+  </div>
+</div>
+
+<div class="footer-note">Source: Platform action-routing architecture</div>
+</body></html>

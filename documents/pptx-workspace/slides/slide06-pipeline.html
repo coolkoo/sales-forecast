@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  font-family: Arial, sans-serif; display: flex; position: relative;
+  background: #FFFFFF; overflow: hidden;
+}
+.header { position: absolute; top: 28pt; left: 48pt; right: 48pt; }
+.action-title { font-family: Arial, sans-serif; font-size: 13pt; font-weight: 700; color: #1A1A1A; margin: 0 0 3pt 0; line-height: 1.3; }
+.header-line { width: 36pt; height: 3pt; background: #004D43; margin: 6pt 0 0 0; }
+
+.pipeline-container { position: absolute; top: 80pt; left: 48pt; right: 48pt; }
+.pipeline { display: flex; align-items: stretch; gap: 6pt; }
+.pipe-step { flex: 1; border-radius: 4pt; padding: 10pt; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 120pt; }
+.pipe-step.ingest { background: #F0F0F0; }
+.pipe-step.forecast { background: #E8F0EE; }
+.pipe-step.detect { background: #FFF3F0; }
+.pipe-step.validate { background: #F7F0E8; }
+.pipe-step.act { background: #E8F0EE; }
+.pipe-step.notify { background: #004D43; }
+
+.pipe-num { font-family: Arial, sans-serif; font-size: 7pt; font-weight: 700; color: rgba(0,0,0,0.3); letter-spacing: 1pt; margin-bottom: 4pt; }
+.pipe-title { font-family: Arial, sans-serif; font-size: 9pt; font-weight: 700; color: #1A1A1A; margin-bottom: 4pt; }
+.pipe-desc { font-family: Arial, sans-serif; font-size: 7pt; color: #666; line-height: 1.3; }
+.pipe-icon { font-size: 16pt; margin-bottom: 4pt; }
+.pipe-arrow { display: flex; align-items: center; font-size: 12pt; color: #CCC; flex-shrink: 0; }
+.pipe-step.notify .pipe-title { color: #FFFFFF; }
+.pipe-step.notify .pipe-desc { color: rgba(255,255,255,0.8); }
+.pipe-step.notify .pipe-num { color: rgba(255,255,255,0.5); }
+
+.bullets { position: absolute; bottom: 72pt; left: 48pt; right: 48pt; display: flex; gap: 20pt; }
+.bullet-item { flex: 1; font-family: Arial, sans-serif; font-size: 8pt; color: #555; line-height: 1.35; padding-left: 8pt; border-left: 2px solid #D0D0D0; }
+.bullet-item b { color: #1A1A1A; }
+
+.footer-note { position: absolute; bottom: 18pt; left: 48pt; right: 48pt; font-family: Arial, sans-serif; font-size: 7pt; color: #AAAAAA; }
+</style></head><body>
+<div class="header">
+  <p class="action-title">Every pipeline run processes the full chain from raw data to alert in minutes, removing the human from the detection loop entirely</p>
+  <div class="header-line"></div>
+</div>
+
+<div class="pipeline-container">
+  <div class="pipeline">
+    <div class="pipe-step ingest">
+      <div class="pipe-num">Step 1</div>
+      <div class="pipe-icon">&#9881;</div>
+      <div class="pipe-title">Ingest</div>
+      <div class="pipe-desc">POS, ERP, weather &rarr; clean, conformed data</div>
+    </div>
+    <div class="pipe-arrow">&rarr;</div>
+    <div class="pipe-step forecast">
+      <div class="pipe-num">Step 2</div>
+      <div class="pipe-icon">&#9651;</div>
+      <div class="pipe-title">Forecast</div>
+      <div class="pipe-desc">Chronos-2 &amp; seasonal models, p05/p50/p95 ranges</div>
+    </div>
+    <div class="pipe-arrow">&rarr;</div>
+    <div class="pipe-step detect">
+      <div class="pipe-num">Step 3</div>
+      <div class="pipe-icon">&#9888;</div>
+      <div class="pipe-title">Detect</div>
+      <div class="pipe-desc">Residual + structural + fraud + inventory anomaly scoring</div>
+    </div>
+    <div class="pipe-arrow">&rarr;</div>
+    <div class="pipe-step validate">
+      <div class="pipe-num">Step 4</div>
+      <div class="pipe-icon">&#10004;</div>
+      <div class="pipe-title">Validate</div>
+      <div class="pipe-desc">Council of independent judges votes on each anomaly</div>
+    </div>
+    <div class="pipe-arrow">&rarr;</div>
+    <div class="pipe-step act">
+      <div class="pipe-num">Step 5</div>
+      <div class="pipe-icon">&#9776;</div>
+      <div class="pipe-title">Plan</div>
+      <div class="pipe-desc">Buying + prep plans generated from forecast output</div>
+    </div>
+    <div class="pipe-arrow">&rarr;</div>
+    <div class="pipe-step notify">
+      <div class="pipe-num">Step 6</div>
+      <div class="pipe-icon">&#9993;</div>
+      <div class="pipe-title">Notify</div>
+      <div class="pipe-desc">Email, Teams, Slack routed by severity</div>
+    </div>
+  </div>
+</div>
+
+<div class="bullets">
+  <div class="bullet-item"><b>Fully automated</b> &mdash; no manual handoffs between stages</div>
+  <div class="bullet-item"><b>Reproducible</b> &mdash; every run rebuilds outputs from source data</div>
+  <div class="bullet-item"><b>Flexible cadence</b> &mdash; nightly default, on-demand or streaming as needed</div>
+</div>
+
+<div class="footer-note">Source: Platform pipeline architecture documentation</div>
+</body></html>

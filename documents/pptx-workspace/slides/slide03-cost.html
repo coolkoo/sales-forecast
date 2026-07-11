@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  font-family: Arial, sans-serif; display: flex; position: relative;
+  background: #FFFFFF; overflow: hidden;
+}
+.header { position: absolute; top: 28pt; left: 48pt; right: 48pt; }
+.action-title { font-family: Arial, sans-serif; font-size: 13pt; font-weight: 700; color: #1A1A1A; margin: 0 0 3pt 0; line-height: 1.3; }
+.header-line { width: 36pt; height: 3pt; background: #004D43; margin: 6pt 0 0 0; }
+.content-table { position: absolute; top: 76pt; left: 48pt; right: 48pt; }
+table { width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; }
+th { text-align: left; font-size: 8pt; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.8pt; padding: 8pt 10pt 6pt 10pt; border-bottom: 1px solid #D0D0D0; }
+td { font-size: 9pt; color: #333; padding: 9pt 10pt; border-bottom: 1px solid #EEEEEE; vertical-align: top; line-height: 1.35; }
+td:first-child { font-weight: 700; color: #1A1A1A; }
+td:last-child { color: #C0392B; font-weight: 600; }
+.insight-box { position: absolute; bottom: 70pt; left: 48pt; right: 48pt; background: #F7F8F9; padding: 12pt 16pt; border-left: 3px solid #004D43; display: flex; align-items: center; justify-content: space-between; }
+.insight-text { font-family: Arial, sans-serif; font-size: 10pt; color: #333; }
+.insight-text b { color: #004D43; }
+.insight-stat { font-family: Arial, sans-serif; font-size: 18pt; font-weight: 700; color: #004D43; }
+.insight-label { font-family: Arial, sans-serif; font-size: 7pt; color: #999; text-transform: uppercase; letter-spacing: 0.5pt; }
+.footer-note { position: absolute; bottom: 18pt; left: 48pt; right: 48pt; font-family: Arial, sans-serif; font-size: 7pt; color: #AAAAAA; }
+</style></head><body>
+<div class="header">
+  <p class="action-title">Every hour of delay compounds financial losses across four distinct risk categories, and manual review does not scale with chain growth</p>
+  <div class="header-line"></div>
+</div>
+
+<div class="content-table">
+<table>
+  <tr><th style="width:22%">Issue type</th><th style="width:48%">What happens in the blind spot</th><th style="width:30%">Cost of 24&ndash;48h delay</th></tr>
+  <tr>
+    <td>POS / register outage</td>
+    <td>Sales silently stop at a store; no alert triggers until next day's report review</td>
+    <td>Full day of unrecorded or lost revenue per incident</td>
+  </tr>
+  <tr>
+    <td>Void / comp fraud</td>
+    <td>Refund and discount abuse continues across multiple shifts without detection</td>
+    <td>Losses compound with every shift until caught</td>
+  </tr>
+  <tr>
+    <td>Stockout on best-sellers</td>
+    <td>High-margin items unavailable; customers walk or shift to competitors</td>
+    <td>Missed sales + damaged customer satisfaction</td>
+  </tr>
+  <tr>
+    <td>Demand spike / drop</td>
+    <td>Wrong staffing levels and food prep quantities locked in for the day</td>
+    <td>Labor waste or service failures; both hit margins</td>
+  </tr>
+</table>
+</div>
+
+<div class="insight-box">
+  <div class="insight-text"><b>Key insight:</b> Manual review <b>doesn't scale</b> &mdash; more stores = more reports = longer lag</div>
+  <div style="text-align:right;">
+    <div class="insight-stat">+36%</div>
+    <div class="insight-label">Analyst time spent finding vs. fixing</div>
+  </div>
+</div>
+
+<div class="footer-note">Source: KFC Vietnam operations workflow analysis; illustrative estimates based on industry benchmarks</div>
+</body></html>

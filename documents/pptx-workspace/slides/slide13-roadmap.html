@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  font-family: Arial, sans-serif; display: flex; position: relative;
+  background: #FFFFFF; overflow: hidden;
+}
+.header { position: absolute; top: 28pt; left: 48pt; right: 48pt; }
+.action-title { font-family: Arial, sans-serif; font-size: 13pt; font-weight: 700; color: #1A1A1A; margin: 0 0 3pt 0; line-height: 1.3; }
+.header-line { width: 36pt; height: 3pt; background: #004D43; margin: 6pt 0 0 0; }
+.sub-header { position: absolute; top: 72pt; left: 48pt; font-family: Arial, sans-serif; font-size: 10pt; color: #666; width: 500pt; line-height: 1.35; }
+
+.timeline { position: absolute; top: 105pt; left: 48pt; right: 48pt; }
+.era { margin-bottom: 6pt; display: flex; align-items: stretch; }
+.era-label { width: 65pt; font-family: Arial, sans-serif; font-size: 8pt; font-weight: 700; color: #fff; padding: 6pt 10pt; display: flex; align-items: center; justify-content: center; text-transform: uppercase; letter-spacing: 0.8pt; border-radius: 3pt 0 0 3pt; }
+.era-body { flex: 1; padding: 8pt 12pt; border-radius: 0 3pt 3pt 0; display: flex; gap: 8pt; }
+.era.now .era-label { background: #004D43; }
+.era.next .era-label { background: #007A6B; }
+.era.later .era-label { background: #9B9B9B; }
+.era.now .era-body { background: #E8F0EE; }
+.era.next .era-body { background: #E8F5F2; }
+.era.later .era-body { background: #F5F5F5; }
+.item { font-family: Arial, sans-serif; font-size: 7.5pt; color: #444; padding: 4pt 8pt; background: rgba(255,255,255,0.7); border-radius: 3pt; }
+.item b { color: #004D43; }
+.era.now .item { background: #FFFFFF; }
+
+.priority-box { position: absolute; bottom: 55pt; left: 48pt; right: 48pt; background: #F7F8F9; padding: 10pt 14pt; display: flex; gap: 14pt; }
+.priority-item { flex: 1; font-family: Arial, sans-serif; font-size: 7.5pt; color: #555; line-height: 1.35; }
+.priority-item b { color: #004D43; }
+
+.footer-note { position: absolute; bottom: 18pt; left: 48pt; right: 48pt; font-family: Arial, sans-serif; font-size: 7pt; color: #AAAAAA; }
+</style></head><body>
+<div class="header">
+  <p class="action-title">Built for MVP today and designed to grow &mdash; the architecture already scales for real-time ingestion, more channels, and wider rollout</p>
+  <div class="header-line"></div>
+</div>
+
+<div class="sub-header">Near-term enhancements build on the same foundation with minimal incremental risk.</div>
+
+<div class="timeline">
+  <div class="era now">
+    <div class="era-label">Now</div>
+    <div class="era-body">
+      <div class="item"><b>Live</b> &mdash; Nightly pipeline active on 192.168.50.85</div>
+      <div class="item"><b>Dashboard</b> &mdash; Full feature set deployed</div>
+      <div class="item"><b>BI feeds</b> &mdash; OData + CSV for PowerBI/Excel</div>
+    </div>
+  </div>
+  <div class="era next">
+    <div class="era-label">Next</div>
+    <div class="era-body">
+      <div class="item"><b>Real-time</b> &mdash; Move from nightly to near-streaming as POS feeds allow</div>
+      <div class="item"><b>Zalo channel</b> &mdash; Add Vietnam's primary messaging platform</div>
+      <div class="item"><b>PowerBI semantic model</b> &mdash; Curated model on OData feed</div>
+    </div>
+  </div>
+  <div class="era later">
+    <div class="era-label">Later</div>
+    <div class="era-body">
+      <div class="item"><b>Wider rollout</b> &mdash; More stores, more regions, scaling on existing architecture</div>
+      <div class="item"><b>AI agent investigations</b> &mdash; Auto-drafted incident summaries with drill-down</div>
+      <div class="item"><b>Multi-chain</b> &mdash; Expand beyond KFC to other concepts</div>
+    </div>
+  </div>
+</div>
+
+<div class="priority-box">
+  <div class="priority-item"><b>Invitation:</b> Which "next" item matters most to your team? We'll prioritize accordingly.</div>
+  <div class="priority-item"><b>Risk profile:</b> Every enhancement builds on the same proven architecture &mdash; no major rebuilds required.</div>
+</div>
+
+<div class="footer-note">Source: Platform product roadmap</div>
+</body></html>

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  font-family: Arial, sans-serif; display: flex; position: relative;
+  background: #FFFFFF; overflow: hidden;
+}
+.header { position: absolute; top: 28pt; left: 48pt; right: 48pt; }
+.action-title { font-family: Arial, sans-serif; font-size: 13pt; font-weight: 700; color: #1A1A1A; margin: 0 0 3pt 0; line-height: 1.3; }
+.header-line { width: 36pt; height: 3pt; background: #004D43; margin: 6pt 0 0 0; }
+
+.left-section { position: absolute; top: 78pt; left: 48pt; width: 320pt; }
+.feature-group { margin-bottom: 12pt; }
+.feature-title { font-family: Arial, sans-serif; font-size: 10pt; font-weight: 700; color: #004D43; margin-bottom: 3pt; }
+.feature-desc { font-family: Arial, sans-serif; font-size: 8pt; color: #555; line-height: 1.35; }
+.feature-tag { display: inline-block; font-size: 7pt; background: #E8F0EE; color: #004D43; padding: 1pt 5pt; border-radius: 2pt; font-weight: 700; margin-top: 2pt; }
+
+.right-section { position: absolute; top: 78pt; right: 48pt; width: 290pt; background: #F7F8F9; padding: 16pt; box-sizing: border-box; }
+.metric-card { margin-bottom: 10pt; padding-bottom: 10pt; border-bottom: 1px solid #E8E8E8; }
+.metric-card:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+.metric-header { display: flex; justify-content: space-between; align-items: baseline; }
+.metric-name { font-family: Arial, sans-serif; font-size: 9pt; font-weight: 600; color: #333; }
+.metric-val { font-family: Arial, sans-serif; font-size: 16pt; font-weight: 700; color: #004D43; }
+.metric-desc { font-family: Arial, sans-serif; font-size: 7.5pt; color: #888; margin-top: 1pt; }
+.metric-bar { height: 4pt; background: #E0E0E0; border-radius: 2pt; margin-top: 4pt; overflow: hidden; }
+.metric-fill { height: 100%; background: #004D43; border-radius: 2pt; }
+
+.model-tag { position: absolute; bottom: 52pt; left: 48pt; font-family: Arial, sans-serif; font-size: 8pt; color: #888; }
+.model-tag b { color: #333; }
+
+.footer-note { position: absolute; bottom: 18pt; left: 48pt; right: 48pt; font-family: Arial, sans-serif; font-size: 7pt; color: #AAAAAA; }
+</style></head><body>
+<div class="header">
+  <p class="action-title">The forecast engine delivers reliable 14-day predictions with honest uncertainty ranges, validated at ~22% MAPE and 89% band coverage</p>
+  <div class="header-line"></div>
+</div>
+
+<div class="left-section">
+  <div class="feature-group">
+    <div class="feature-title">Two-model architecture</div>
+    <div class="feature-desc"><b>Chronos-2 foundation model</b> (GPU) for highest accuracy; <b>zero-dependency seasonal model</b> as always-available fallback with identical interface &mdash; nothing downstream changes.</div>
+  </div>
+  <div class="feature-group">
+    <div class="feature-title">Forecast as a range</div>
+    <div class="feature-desc">Every prediction is a <b>p05 &middot; p50 &middot; p95 band</b> &mdash; the width tells you how confident to be. This band directly powers anomaly detection.</div>
+  </div>
+  <div class="feature-group">
+    <div class="feature-title">Restaurant-aware inputs</div>
+    <div class="feature-desc">Weather, day-of-week, promotions, and Vietnam-specific drivers: T&#7871;t multi-week regime, Women's/Children's/Teachers' Day, Mid-Autumn, and new-store maturation ramp.</div>
+  </div>
+  <div class="feature-group">
+    <div class="feature-title">Data foundation</div>
+    <div class="feature-desc">Bronze &rarr; Silver &rarr; Gold medallion warehouse with full lineage tracing. Every forecast figure traces back to its source export with timestamps.<span class="feature-tag">Trust</span></div>
+  </div>
+</div>
+
+<div class="right-section">
+  <div class="metric-card">
+    <div class="metric-header">
+      <div class="metric-name">MAPE (Mean Absolute Percentage Error)</div>
+      <div class="metric-val">~22%</div>
+    </div>
+    <div class="metric-desc">Typical forecast error as % of actual sales</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-header">
+      <div class="metric-name">Band coverage (p05&ndash;p95)</div>
+      <div class="metric-val">~89%</div>
+    </div>
+    <div class="metric-desc">Actual sales land inside the confidence band &asymp;90% of the time (as designed)</div>
+    <div class="metric-bar"><div class="metric-fill" style="width:89%"></div></div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-header">
+      <div class="metric-name">Skill vs. naive forecast</div>
+      <div class="metric-val">+36%</div>
+    </div>
+    <div class="metric-desc">36% less error than "same as last week" baseline</div>
+    <div class="metric-bar"><div class="metric-fill" style="width:100%"></div></div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-header">
+      <div class="metric-name">Forecast horizon</div>
+      <div class="metric-val">14 days</div>
+    </div>
+    <div class="metric-desc">Per store &times; item &times; daypart</div>
+  </div>
+</div>
+
+<div class="model-tag"><b>Models:</b> Chronos-2 (GPU) + Seasonal ML fallback &nbsp;|&nbsp; <b>Validated on:</b> KFC Vietnam hold-out data</div>
+
+<div class="footer-note">Source: Backtest results on KFC Vietnam historical sales data</div>
+</body></html>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  font-family: Arial, sans-serif; display: flex; position: relative;
+  background: #004D43; overflow: hidden;
+}
+.content { position: absolute; top: 50pt; left: 55pt; right: 55pt; bottom: 50pt; display: flex; flex-direction: column; justify-content: center; }
+.line { width: 50pt; height: 3pt; background: #D4A84B; margin-bottom: 20pt; }
+h2 { font-family: Arial, sans-serif; font-size: 14pt; font-weight: 700; color: #FFFFFF; margin: 0 0 18pt 0; letter-spacing: -0.3pt; }
+.summary-grid { display: flex; gap: 12pt; flex-wrap: wrap; }
+.summary-card { width: 290pt; background: rgba(255,255,255,0.1); padding: 12pt 14pt; border-radius: 3pt; box-sizing: border-box; }
+.summary-num { font-family: Arial, sans-serif; font-size: 20pt; font-weight: 700; color: #D4A84B; line-height: 1; margin-bottom: 2pt; }
+.summary-title { font-family: Arial, sans-serif; font-size: 9pt; font-weight: 700; color: #FFFFFF; margin-bottom: 3pt; }
+.summary-desc { font-family: Arial, sans-serif; font-size: 7.5pt; color: rgba(255,255,255,0.7); line-height: 1.35; }
+.asks { position: absolute; bottom: 45pt; left: 55pt; right: 55pt; display: flex; gap: 14pt; }
+.ask-item { flex: 1; background: rgba(212,168,75,0.15); border: 1px solid rgba(212,168,75,0.3); padding: 8pt 12pt; border-radius: 3pt; display: flex; align-items: center; }
+.ask-num { font-family: Arial, sans-serif; font-size: 12pt; font-weight: 700; color: #D4A84B; margin-right: 8pt; }
+.ask-text { font-family: Arial, sans-serif; font-size: 8pt; color: rgba(255,255,255,0.85); }
+.ask-text b { color: #D4A84B; }
+.footer { position: absolute; bottom: 18pt; left: 55pt; right: 55pt; display: flex; justify-content: space-between; font-family: Arial, sans-serif; font-size: 7pt; color: rgba(255,255,255,0.4); }
+</style></head><body>
+<div class="content">
+  <div class="line"></div>
+  <h2>From 24&ndash;48 hours to minutes: an automated forecast + anomaly platform<br>running on our own infrastructure with proven accuracy</h2>
+
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="summary-num">01</div>
+      <div class="summary-title">Problem eliminated</div>
+      <div class="summary-desc">Anomalies were found 24&ndash;48h late via manual daily review. Now detected and routed in minutes.</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-num">02</div>
+      <div class="summary-title">Proven accuracy</div>
+      <div class="summary-desc">~22% MAPE, 89% band coverage, +36% skill vs. naive, precision 1.0 on anomaly detection.</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-num">03</div>
+      <div class="summary-title">No new infrastructure spend</div>
+      <div class="summary-desc">On-prem GPU (idle A2), one-command deploy, same code runs laptop-to-server. Env-switched by design.</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-num">04</div>
+      <div class="summary-title">Governed &amp; auditable</div>
+      <div class="summary-desc">RBAC with admin/manager/analyst/viewer roles. Full audit trail on every guarded action.</div>
+    </div>
+  </div>
+</div>
+
+<div class="asks">
+  <div class="ask-item">
+    <div class="ask-num">1</div>
+    <div class="ask-text"><b>Confirm target stores</b> for the next rollout wave</div>
+  </div>
+  <div class="ask-item">
+    <div class="ask-num">2</div>
+    <div class="ask-text"><b>Validate business-value figures</b> with Finance</div>
+  </div>
+  <div class="ask-item">
+    <div class="ask-num">3</div>
+    <div class="ask-text"><b>Prioritize</b> the roadmap item that matters most</div>
+  </div>
+</div>
+
+<div class="footer">
+  <span>KFC Vietnam &bull; Sales Anomaly Detection &amp; Forecasting Platform</span>
+  <span>Contact: [Name] &bull; [Email]</span>
+</div>
+</body></html>

@@ -8,3 +8,5 @@ deploy/.env
 data/
 *.log
 .DS_Store
+# pptx build workspace deps (regenerable with `npm install`) — keep the source, not node_modules
+documents/pptx-workspace/node_modules/
