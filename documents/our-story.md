@@ -121,6 +121,42 @@ attempts** — and lets operations **remediate with one click**: restart the ser
 over the network, block the intruding IP. The same detect-and-respond discipline that
 protects enterprises, now protecting a restaurant's shift.
 
+## Under the hood: from raw data to a decision
+
+The magic isn't one model — it's a disciplined pipeline that turns messy operational
+exhaust into a decision someone can act on *before the shift ends*.
+
+**1. Ingest — every source, one clean warehouse.** POS transactions (Oracle Simphony,
+Toast, Square), ERP and inventory (SAP), weather feeds, and manual uploads all land in a
+**medallion data warehouse** and get refined in three layers:
+
+- **Bronze** — raw, exactly as received.
+- **Silver** — cleaned and conformed into one canonical model: sales by store × item ×
+  daypart × channel, plus menus, recipes, inventory, and weather.
+- **Gold** — the business-ready tables the whole platform reads.
+
+**2. Feed the model — demand is driven, not random.** From the conformed data we build
+the covariates that actually move a restaurant — day-of-week, weather, promotions, Tết
+and Vietnamese holidays, and each store's maturation curve — and feed them to a
+**machine-learning time-series model**. It forecasts demand as a *range*
+(p05 / p50 / p95), not a single guess, for every store, item, and channel.
+
+**3. Compare reality to the forecast.** Each day's actuals are scored against that
+forecast band. When reality breaks away from expectation, the **anomaly engine** flags
+it, a multi-judge **council** confirms it, and **driver attribution** explains *why* —
+which channel, daypart, delivery partner, or store.
+
+**4. Everything ties up — one loop, many surfaces.** The same gold layer feeds it all:
+the forecast becomes **buying and prep plans**; confirmed anomalies become **alerts** and
+**store-health remediation**; and every number is explorable through the **dashboard,
+executive reports, and a conversational AI analyst** — with **PowerBI / OData feeds** for
+teams that live in their own tools.
+
+> **POS · ERP · weather → warehouse (bronze → silver → gold) → forecast → anomaly +
+> drivers → alerts · buying/prep · remediation → dashboard · reports · AI chat · BI**
+
+Raw data in one end, a fix in someone's hands out the other — that's the whole system.
+
 ## Why us
 
 Anyone can build a dashboard. This works because it was built by people who have
